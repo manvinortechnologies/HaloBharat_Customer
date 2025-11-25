@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import auth from '@react-native-firebase/auth';
 
 import LoginScreen from './src/screen/LoginScreen';
 import OtpScreen from './src/screen/OtpScreen';
@@ -33,12 +37,36 @@ import PaymentConfirmation from './src/screen/PaymentConfirmation';
 import AssignProject from './src/screen/AssignProject';
 import BrandList from './src/screen/BrandList';
 import ProductCategoryList from './src/screen/ProductCategoryList';
+import { clearAuthData } from './src/storage/authStorage';
+import { setGlobalLogoutFunction } from './src/api/axiosInstance';
+import BrandProductsList from './src/screen/BrandProductsList';
+import VendorDetail from './src/screen/VendorDetail';
+import ChatsScreen from './src/screen/ChatsScreen';
+import ChatingScreen from './src/screen/ChatingScreen';
 
 const Stack = createStackNavigator();
+const navigationRef = createNavigationContainerRef<any>();
 
 const App = () => {
+  useEffect(() => {
+    setGlobalLogoutFunction(async () => {
+      try {
+        await auth().signOut();
+      } catch (err) {
+        console.warn('Failed to sign out of Firebase:', err);
+      }
+      await clearAuthData();
+      if (navigationRef.isReady()) {
+        navigationRef.reset({
+          index: 0,
+          routes: [{ name: 'LoginScreen' as never }],
+        });
+      }
+    });
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="SplashScreen" component={SplashScreen} />
         <Stack.Screen name="LoginScreen" component={LoginScreen} />
@@ -46,7 +74,7 @@ const App = () => {
         <Stack.Screen name="Signup" component={Signup} />
         <Stack.Screen name="MainTab" component={MainTabScreen} />
         {/* <Stack.Screen name="Home" component={Home} /> */}
-        <Stack.Screen name="More" component={More} />
+        {/* <Stack.Screen name="More" component={More} /> */}
         <Stack.Screen name="Categories" component={Categories} />
         <Stack.Screen
           name="ProductCategoryList"
@@ -57,7 +85,9 @@ const App = () => {
         <Stack.Screen name="RatingReview" component={RatingReview} />
         <Stack.Screen name="Vendors" component={Vendors} />
         <Stack.Screen name="VendorList" component={VendorList} />
+        <Stack.Screen name="VendorDetail" component={VendorDetail} />
         <Stack.Screen name="BrandList" component={BrandList} />
+        <Stack.Screen name="BrandProductsList" component={BrandProductsList} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
         <Stack.Screen name="Wishlist" component={Wishlist} />
         <Stack.Screen name="Notification" component={Notification} />
@@ -76,6 +106,8 @@ const App = () => {
         <Stack.Screen name="AddAddress" component={AddAddress} />
         <Stack.Screen name="HelpSupport" component={HelpSupport} />
         <Stack.Screen name="TermsPolicies" component={TermsPolicies} />
+        <Stack.Screen name="ChatsScreen" component={ChatsScreen} />
+        <Stack.Screen name="ChatingScreen" component={ChatingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

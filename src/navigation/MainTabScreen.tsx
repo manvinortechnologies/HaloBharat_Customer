@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+  s,
+} from 'react-native-size-matters';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import COLORS from '../constants/colors';
 
 // 👉 Import your screens
 import HomeScreen from '../screen/Home';
 import More from '../screen/More';
 import Account from '../screen/Account';
 import Categories from '../component/Categories';
+import { RouteProp, useRoute } from '@react-navigation/native';
 
 interface TabItem {
   id: string;
@@ -18,8 +28,20 @@ interface TabItem {
   iconFamily: 'MaterialIcons' | 'MaterialCommunityIcons' | 'Custom';
 }
 
+type MainTabParamList = {
+  MainTab: { screenName: string };
+};
+
 const MainTabScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState('HOME');
+  const route = useRoute<RouteProp<MainTabParamList, 'MainTab'>>();
+  const insets = useSafeAreaInsets();
+  useEffect(() => {
+    console.log('route.params?.screenName', route.params?.screenName);
+    if (route.params?.screenName) {
+      setActiveTab(route.params.screenName);
+    }
+  }, [route.params?.screenName]);
 
   const tabItems: TabItem[] = [
     {
@@ -64,7 +86,7 @@ const MainTabScreen: React.FC = () => {
   };
 
   const renderIcon = (item: TabItem, isActive: boolean) => {
-    const iconColor = isActive ? '#9E7946' : '#303030';
+    const iconColor = isActive ? COLORS.accentBronze : COLORS.textDark;
     const iconSize = moderateScale(24);
 
     if (item.iconFamily === 'MaterialCommunityIcons') {
@@ -114,35 +136,35 @@ const MainTabScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.content}>{renderScreen()}</View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.content}>{renderScreen()}</View>
 
-        <View style={styles.tabContainer}>
-          {tabItems.map(item => {
-            const isActive = activeTab === item.id;
+      <View
+        style={[styles.tabContainer, { paddingBottom: insets.bottom + s(10) }]}
+      >
+        {tabItems.map(item => {
+          const isActive = activeTab === item.id;
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.tabItem}
-                onPress={() => setActiveTab(item.id)}
-                activeOpacity={0.7}
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.tabItem}
+              onPress={() => setActiveTab(item.id)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconContainer}>
+                {renderIcon(item, isActive)}
+              </View>
+              <Text
+                style={[styles.tabLabel, isActive && styles.activeTabLabel]}
               >
-                <View style={styles.iconContainer}>
-                  {renderIcon(item, isActive)}
-                </View>
-                <Text
-                  style={[styles.tabLabel, isActive && styles.activeTabLabel]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -151,11 +173,11 @@ export default MainTabScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
   },
   content: {
     flex: 1,
@@ -167,7 +189,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     borderTopWidth: 0.5,
-    borderTopColor: '#C2C2C2',
+    borderTopColor: COLORS.gray650,
   },
   tabItem: {
     flex: 1,
@@ -180,11 +202,11 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: moderateScale(10),
     fontWeight: '400',
-    color: '#303030',
+    color: COLORS.textDark,
     textAlign: 'center',
   },
   activeTabLabel: {
-    color: '#9E7946',
+    color: COLORS.accentBronze,
     fontWeight: '600',
   },
 });

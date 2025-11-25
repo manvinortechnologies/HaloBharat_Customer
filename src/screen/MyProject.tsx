@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import {
-  ScrollView,
+  FlatList,
   Text,
   View,
   TouchableOpacity,
@@ -15,6 +15,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import NormalHeader from '../component/NormalHeader';
 import { useNavigation } from '@react-navigation/native';
+import COLORS from '../constants/colors';
+import { createProject, getProjects } from '../api/projects';
 
 const MyProject = () => {
   const navigation = useNavigation<any>();
@@ -22,28 +24,92 @@ const MyProject = () => {
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [projectName, setProjectName] = useState('');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const projects = [
-    {
-      id: 1,
-      name: 'Project Alpha',
-    },
-    {
-      id: 2,
-      name: 'Project Orion',
-    },
-    {
-      id: 3,
-      name: 'Office Renovation',
-    },
-    {
-      id: 4,
-      name: 'Project Nova',
-    },
-  ];
+  const normalizeProject = useCallback((item: any, index: number) => {
+    return {
+      id: String(item?.id ?? item?.project_id ?? `project-${index}`),
+      name: item?.name ?? item?.title ?? 'Project',
+      status: item?.status ?? 'Active',
+      siteName: item?.site_name ?? item?.site ?? null,
+      createdAt: item?.created_at ?? item?.createdAt ?? null,
+    };
+  }, []);
 
-  const handleProjectPress = (projectName: string) => {
-    navigation.navigate('MyProjectDetail', { name: projectName });
+  const fetchProjects = useCallback(
+    async (mode: 'default' | 'refresh' = 'default', page: number = 1) => {
+      if (mode === 'refresh') {
+        setRefreshing(true);
+        setCurrentPage(1);
+        setHasMore(true);
+      } else if (page === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      setError(null);
+      try {
+        const payload = await getProjects({ page });
+        const listSource = payload.results || [];
+
+        const normalizedProjects = listSource.map(normalizeProject);
+
+        if (page === 1) {
+          setProjects(normalizedProjects);
+        } else {
+          setProjects(prev => [...prev, ...normalizedProjects]);
+        }
+
+        const totalPagesCount = payload?.total_pages ?? 1;
+        const currentPageNum = payload?.current_page ?? page;
+        const hasNextPage =
+          payload?.next !== null && currentPageNum < totalPagesCount;
+
+        setTotalPages(totalPagesCount);
+        setCurrentPage(currentPageNum);
+        setHasMore(hasNextPage);
+      } catch (err: any) {
+        setError(err?.message || 'Unable to load projects.');
+        if (page === 1) {
+          setProjects([]);
+        }
+      } finally {
+        if (mode === 'refresh') {
+          setRefreshing(false);
+        } else if (page === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
+      }
+    },
+    [normalizeProject],
+  );
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore && !loading && !refreshing) {
+      const nextPage = currentPage + 1;
+      fetchProjects('default', nextPage);
+    }
+  }, [currentPage, hasMore, loadingMore, loading, refreshing, fetchProjects]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  const handleProjectPress = (projectId: string, projectName: string) => {
+    navigation.navigate('MyProjectDetail', {
+      projectId,
+      name: projectName,
+    });
   };
 
   const handleAddProject = () => {
@@ -55,46 +121,145 @@ const MyProject = () => {
     setProjectName('');
   };
 
-  const handleSaveProject = () => {
-    if (!projectName.trim()) {
+  const handleSaveProject = useCallback(async () => {
+    const trimmedName = projectName.trim();
+    if (!trimmedName) {
       Alert.alert('Please enter a project name');
       return;
     }
-    setShowAddProjectModal(false);
-    setShowSuccessModal(true);
-    setProjectName('');
-  };
+    try {
+      setCreatingProject(true);
+      await createProject({ title: trimmedName, is_active: true });
+      setProjectName('');
+      setShowAddProjectModal(false);
+      setShowSuccessModal(true);
+      fetchProjects('refresh', 1);
+    } catch (error: any) {
+      Alert.alert(
+        'Project Creation Failed',
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          'Unable to create project.',
+      );
+    } finally {
+      setCreatingProject(false);
+    }
+  }, [projectName, fetchProjects]);
 
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
   };
 
+  const renderProjectItem = useCallback(
+    ({ item: project }: { item: any }) => (
+      <TouchableOpacity
+        style={styles.projectItem}
+        onPress={() => handleProjectPress(project.id, project.name)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.projectContent}>
+          <View style={styles.projectInfo}>
+            <Text style={styles.projectName}>{project.name}</Text>
+            {project.siteName ? (
+              <Text style={styles.projectSite}>{project.siteName}</Text>
+            ) : null}
+            {project.createdAt ? (
+              <Text style={styles.projectMeta}>
+                Created on{' '}
+                {new Date(project.createdAt).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.projectStatus}>
+            <Text style={styles.projectStatusText}>
+              {project.status ?? 'Active'}
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={28} color={COLORS.black} />
+        </View>
+      </TouchableOpacity>
+    ),
+    [],
+  );
+
+  const renderListHeader = useCallback(() => {
+    if (error) {
+      return (
+        <TouchableOpacity
+          style={styles.errorBanner}
+          onPress={() => fetchProjects('default', 1)}
+        >
+          <Icon name="error-outline" size={20} color={COLORS.accentRed} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.retryText}>Tap to retry</Text>
+        </TouchableOpacity>
+      );
+    }
+    return null;
+  }, [error, fetchProjects]);
+
+  const renderListEmpty = useCallback(() => {
+    if (loading) {
+      return (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.loaderText}>Loading projects...</Text>
+        </View>
+      );
+    }
+    if (!error) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Icon name="assignment" size={48} color={COLORS.gray700} />
+          <Text style={styles.emptyTitle}>No projects yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Tap "Add Project" to create your first project
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loading, error]);
+
+  const renderListFooter = useCallback(() => {
+    if (loadingMore) {
+      return (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.loaderText}>Loading more projects...</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loadingMore]);
+
   return (
     <SafeAreaView style={styles.container}>
       <NormalHeader title="My Projects" />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+      <FlatList
+        data={projects}
+        renderItem={renderProjectItem}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.projectsContainer}>
-          {projects.map(project => (
-            <TouchableOpacity
-              key={project.id}
-              style={styles.projectItem}
-              onPress={() => handleProjectPress(project.name)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.projectContent}>
-                <View style={styles.projectInfo}>
-                  <Text style={styles.projectName}>{project.name}</Text>
-                </View>
-                <Icon name="chevron-right" size={28} color="#000" />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchProjects('refresh', 1)}
+            tintColor={COLORS.primary}
+          />
+        }
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderListEmpty}
+        ListFooterComponent={renderListFooter}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+      />
 
       {/* Floating Add Project Button */}
       <TouchableOpacity
@@ -127,11 +292,19 @@ const MyProject = () => {
                 />
 
                 <TouchableOpacity
-                  style={[styles.saveButton]}
+                  style={[
+                    styles.saveButton,
+                    (!projectName.trim() || creatingProject) &&
+                      styles.saveButtonDisabled,
+                  ]}
                   onPress={handleSaveProject}
-                  disabled={!projectName.trim()}
+                  disabled={!projectName.trim() || creatingProject}
                 >
-                  <Text style={styles.saveButtonText}>Save Project</Text>
+                  {creatingProject ? (
+                    <ActivityIndicator color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Project</Text>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -162,14 +335,14 @@ const MyProject = () => {
                   style={styles.closeButton}
                   onPress={handleCloseSuccessModal}
                 >
-                  <Icon name="close" size={22} color="#000" />
+                  <Icon name="close" size={22} color={COLORS.black} />
                 </TouchableOpacity>
 
                 {/* Green Tick Icon */}
                 <Ionicons
                   name="checkmark-circle"
                   size={70}
-                  color="#28a745"
+                  color={COLORS.success}
                   style={styles.successIcon}
                 />
 
@@ -191,29 +364,26 @@ export default MyProject;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: COLORS.gray975,
   },
   scrollContent: {
     paddingVertical: '16@s',
     paddingBottom: '80@vs',
-  },
-  projectsContainer: {
-    gap: '12@vs',
+    paddingHorizontal: '18@s',
   },
   projectContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 10,
     marginVertical: 10,
+    padding: '12@s',
+    alignItems: 'center',
   },
   projectItem: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingVertical: '8@vs',
-    paddingHorizontal: '18@s',
+    marginBottom: '12@vs',
     borderRadius: '10@s',
     flexDirection: 'row',
     alignItems: 'center',
@@ -225,14 +395,83 @@ const styles = ScaledSheet.create({
   projectName: {
     fontSize: '15@ms',
     fontWeight: '500',
-    color: '#000',
+    color: COLORS.black,
+  },
+  projectSite: {
+    fontSize: '12@ms',
+    color: COLORS.textAsh,
+    marginTop: '4@vs',
+  },
+  projectMeta: {
+    fontSize: '11@ms',
+    color: COLORS.textSubtle,
+    marginTop: '4@vs',
+  },
+  projectStatus: {
+    backgroundColor: COLORS.infoSurface,
+    paddingHorizontal: '8@s',
+    paddingVertical: '4@vs',
+    borderRadius: '6@s',
+    marginRight: '8@s',
+  },
+  projectStatusText: {
+    fontSize: '11@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginHorizontal: '20@s',
+    marginBottom: '12@vs',
+    gap: '8@s',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8@s',
+    paddingVertical: '16@vs',
+  },
+  loaderText: {
+    fontSize: '13@ms',
+    color: COLORS.textDark,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: '40@vs',
+    gap: '8@vs',
+  },
+  emptyTitle: {
+    fontSize: '16@ms',
+    fontWeight: '600',
+    color: COLORS.textSemiDark,
+  },
+  emptySubtitle: {
+    fontSize: '13@ms',
+    color: COLORS.textAsh,
+    textAlign: 'center',
   },
 
   floatingButton: {
     position: 'absolute',
     bottom: '20@vs',
     right: '20@s',
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '10@s',
     paddingHorizontal: '20@s',
     paddingVertical: '10@vs',
@@ -240,22 +479,22 @@ const styles = ScaledSheet.create({
     alignItems: 'center',
     elevation: 5,
   },
-  addButtonText: { fontSize: '14@ms', color: '#fff', fontWeight: '400' },
+  addButtonText: { fontSize: '14@ms', color: COLORS.white, fontWeight: '400' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.overlayStrong,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: '20@s',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '16@s',
     padding: '20@s',
     paddingHorizontal: '30@s',
     width: '90%',
     maxWidth: '340@s',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.25,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 6,
@@ -264,38 +503,38 @@ const styles = ScaledSheet.create({
   modalHeader: {
     fontSize: '16@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '2@vs',
     textAlign: 'center',
   },
   modalSubHeader: {
     fontSize: '10@s',
     textAlign: 'center',
-    color: '#696969',
+    color: COLORS.textAsh,
     marginBottom: '18@vs',
   },
   projectInput: {
     borderWidth: 1,
-    borderColor: '#B8B8B8',
+    borderColor: COLORS.gray600,
     borderRadius: '8@s',
     paddingHorizontal: '12@s',
     paddingVertical: '10@vs',
     fontSize: '14@ms',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     marginBottom: '10@vs',
   },
   saveButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingVertical: '12@vs',
     borderRadius: '8@s',
     alignItems: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.gray700,
   },
   saveButtonText: {
     fontSize: '16@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '400',
   },
   cancelButton: {
@@ -304,11 +543,11 @@ const styles = ScaledSheet.create({
   },
   cancelButtonText: {
     fontSize: '14@ms',
-    color: '#1C3452',
+    color: COLORS.primary,
     fontWeight: '500',
   },
   successModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '12@s',
     padding: '28@s',
     width: '90%',
@@ -322,7 +561,7 @@ const styles = ScaledSheet.create({
   successMessage: {
     fontSize: '16@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     textAlign: 'center',
   },
   closeButton: {

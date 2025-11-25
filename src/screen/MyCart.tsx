@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet, ms, vs, s } from 'react-native-size-matters';
@@ -13,73 +17,388 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ion from 'react-native-vector-icons/Ionicons';
 import NormalHeader from '../component/NormalHeader';
 import ProductCard from '../component/Product';
-import AddAddress from './AddAddress';
+import COLORS from '../constants/colors';
+import { getCartItems, checkoutCart, removeCartItem } from '../api/cart';
 
-const bestsellers = [
-  {
-    id: '1',
-    name: 'Screw Assortment Box + Fastener Set',
-    originalPrice: 1011,
-    discountedPrice: 950,
-    image: require('../assets/product1.png'),
-  },
-  {
-    id: '2',
-    name: '5 kg cement + Steel Rods',
-    originalPrice: 1011,
-    discountedPrice: 950,
-    image: require('../assets/product2.png'),
-  },
-  {
-    id: '3',
-    name: 'Pipes & Fitting (GI pipes, M5)',
-    originalPrice: 1011,
-    discountedPrice: 950,
-    image: require('../assets/product3.png'),
-  },
-];
+interface CartItem {
+  id: string;
+  title: string;
+  seller: string | null;
+  qtyLabel: string;
+  price: number;
+  oldPrice?: number | null;
+  deliveryDate?: string | null;
+  imageUrl?: string | null;
+}
+
+interface BillDetails {
+  itemTotal: number;
+  deliveryFees: number;
+  platformFees: number;
+  gst: number;
+  totalAmount: number;
+}
+
+interface DeliveryAddress {
+  id?: string;
+  name: string;
+  phone?: string | null;
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+}
+
+interface BestsellerItem {
+  id: string;
+  name: string;
+  originalPrice?: number;
+  discountedPrice?: number;
+  image: any;
+}
 
 const MyCart = ({ navigation }: any) => {
-  const [selectedItem, setSelectedItem] = useState(1);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fallbackImage = useMemo(() => require('../assets/product1.png'), []);
+  const placeholderProductImage = useMemo(
+    () => require('../assets/product2.png'),
+    [],
+  );
+  const [billDetails, setBillDetails] = useState<BillDetails>({
+    itemTotal: 0,
+    deliveryFees: 0,
+    platformFees: 0,
+    gst: 0,
+    totalAmount: 0,
+  });
+  const [deliveryAddress, setDeliveryAddress] =
+    useState<DeliveryAddress | null>(null);
+  const [bestsellerProducts, setBestsellerProducts] = useState<
+    BestsellerItem[]
+  >([]);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
+  const [pendingRemovalItem, setPendingRemovalItem] = useState<CartItem | null>(
+    null,
+  );
+  const parseAmount = useCallback((value: any) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+    const parsed = parseFloat(value ?? '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, []);
 
-  const cartItems = [
-    {
-      id: 1,
-      title: 'Cinder Blocks / Concrete Hollow Blocks',
-      seller: 'Cemex',
-      qty: '5 Packs',
-      price: 3998,
-      oldPrice: 5998,
-      deliveryDate: '27 Sept',
-      image: require('../assets/product1.png'),
-    },
-    {
-      id: 2,
-      title: 'Cinder Blocks / Concrete Hollow Blocks',
-      seller: 'Cemex',
-      qty: '5 Packs',
-      price: 3998,
-      oldPrice: 5998,
-      deliveryDate: '27 Sept',
-      image: require('../assets/product2.png'),
-    },
-    {
-      id: 3,
-      title: 'Cinder Blocks / Concrete Hollow Blocks',
-      seller: 'Cemex',
-      qty: '5 Packs',
-      price: 3998,
-      oldPrice: 5998,
-      deliveryDate: '27 Sept',
-      image: require('../assets/product3.png'),
-    },
-  ];
+  const normalizeCartItem = useCallback(
+    (item: any, index: number): CartItem => {
+      const product = item;
+      const quantity = Number(item?.quantity ?? product?.quantity ?? 1);
+      const unitLabel =
+        product?.unit ??
+        product?.unit_of_measure ??
+        product?.measurement_unit ??
+        'Qty';
+      const imageCandidate =
+        product?.images?.find((img: any) => img?.url)?.url ?? product?.image;
 
-  const itemTotal = 3998 * cartItems.length;
-  const deliveryFees = 150;
-  const platformFees = 49;
-  const gst = 180;
-  const totalAmount = itemTotal + deliveryFees + platformFees + gst;
+      const priceValue = item?.current_price;
+      const oldPriceValue = item?.original_price;
+
+      return {
+        id: String(item?.id ?? item?.cart_item_id ?? `cart-item-${index}`),
+        title: item?.product_name ?? 'Product',
+        seller: item?.seller ?? product?.seller ?? product?.vendor_name ?? null,
+        qtyLabel: `${quantity} ${unitLabel}`,
+        price: priceValue,
+        oldPrice: oldPriceValue,
+        deliveryDate: item?.delivery_date ?? item?.deliveryDate ?? null,
+        imageUrl: product?.product_image,
+      };
+    },
+    [parseAmount],
+  );
+
+  const normalizeAddress = useCallback((address: any): DeliveryAddress => {
+    if (!address) {
+      return {
+        name: 'Add delivery address',
+      };
+    }
+
+    return {
+      id: address?.id ? String(address.id) : undefined,
+      name:
+        address?.full_name ??
+        address?.contact_name ??
+        address?.name ??
+        'Delivery Address',
+      phone:
+        address?.phone ?? address?.contact_phone ?? address?.mobile ?? null,
+      line1:
+        address?.building ??
+        address?.address_line_1 ??
+        address?.addressLine1 ??
+        null,
+      line2:
+        address?.locality ??
+        address?.address_line_2 ??
+        address?.addressLine2 ??
+        null,
+      city: address?.city ?? null,
+      state: address?.state ?? null,
+      pincode: address?.pincode ?? address?.pin_code ?? null,
+    };
+  }, []);
+
+  const normalizeBestseller = useCallback(
+    (product: any, index: number): BestsellerItem => {
+      const imageUrl =
+        product?.images?.find((img: any) => img?.url)?.url ?? product?.image;
+      const originalPriceRaw = parseAmount(
+        product?.original_price ?? product?.price_including_gst,
+      );
+      const discountedPriceRaw = parseAmount(
+        product?.price ?? product?.sale_price,
+      );
+      const originalPriceValue =
+        Number.isFinite(originalPriceRaw) && originalPriceRaw > 0
+          ? originalPriceRaw
+          : undefined;
+      const discountedPriceValue =
+        Number.isFinite(discountedPriceRaw) && discountedPriceRaw > 0
+          ? discountedPriceRaw
+          : undefined;
+      return {
+        id: String(product?.id ?? `bestseller-${index}`),
+        name: product?.name ?? product?.title ?? 'Product',
+        originalPrice: originalPriceValue,
+        discountedPrice: discountedPriceValue,
+        image: imageUrl ? { uri: imageUrl } : placeholderProductImage,
+      };
+    },
+    [parseAmount, placeholderProductImage],
+  );
+
+  const fetchCart = useCallback(
+    async (mode: 'default' | 'refresh' = 'default') => {
+      if (mode === 'refresh') {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      try {
+        setError(null);
+        const payload = await getCartItems();
+        const listSource = Array.isArray(payload?.items) ? payload.items : [];
+        const normalized = listSource.map(normalizeCartItem);
+        setCartItems(normalized);
+        if (normalized.length === 0) {
+          setSelectedItems(new Set());
+        } else {
+          setSelectedItems(prev => {
+            const next = new Set<string>();
+            if (prev.size === 0) {
+              normalized.forEach((item: CartItem) => next.add(item.id));
+            } else {
+              normalized.forEach((item: CartItem) => {
+                if (prev.has(item.id)) {
+                  next.add(item.id);
+                }
+              });
+              if (next.size === 0) {
+                normalized.forEach((item: CartItem) => next.add(item.id));
+              }
+            }
+            return next;
+          });
+        }
+
+        const apiBill = payload?.bill_details ?? {};
+        setBillDetails({
+          itemTotal: parseAmount(apiBill?.item_total),
+          deliveryFees: parseAmount(apiBill?.delivery_fees),
+          platformFees: parseAmount(apiBill?.platform_fees),
+          gst: parseAmount(apiBill?.gst),
+          totalAmount: parseAmount(apiBill?.total),
+        });
+
+        setDeliveryAddress(
+          payload?.delivery_address
+            ? normalizeAddress(payload.delivery_address)
+            : null,
+        );
+
+        const bestsellerSource = Array.isArray(payload?.bestsellers)
+          ? payload.bestsellers
+          : [];
+        setBestsellerProducts(
+          bestsellerSource.map((product: any, index: number) =>
+            normalizeBestseller(product, index),
+          ),
+        );
+      } catch (err: any) {
+        setError(err?.message || 'Unable to load cart.');
+        setCartItems([]);
+        setDeliveryAddress(null);
+        setBillDetails({
+          itemTotal: 0,
+          deliveryFees: 0,
+          platformFees: 0,
+          gst: 0,
+          totalAmount: 0,
+        });
+        setBestsellerProducts([]);
+      } finally {
+        if (mode === 'refresh') {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [normalizeCartItem, parseAmount, normalizeAddress, normalizeBestseller],
+  );
+
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
+
+  const addressLine = useMemo(() => {
+    if (!deliveryAddress) {
+      return null;
+    }
+
+    const parts = [
+      deliveryAddress.line1,
+      deliveryAddress.line2,
+      deliveryAddress.city,
+      deliveryAddress.state,
+      deliveryAddress.pincode,
+    ].filter(Boolean);
+
+    return parts.join(', ');
+  }, [deliveryAddress]);
+
+  const handleRemoveItem = useCallback((item: CartItem) => {
+    setPendingRemovalItem(item);
+    setConfirmRemoveVisible(true);
+  }, []);
+
+  const handleCancelRemove = useCallback(() => {
+    setPendingRemovalItem(null);
+    setConfirmRemoveVisible(false);
+  }, []);
+
+  const handleConfirmRemove = useCallback(async () => {
+    if (!pendingRemovalItem) {
+      return;
+    }
+    const targetId = pendingRemovalItem.id;
+    try {
+      setRemovingItemId(targetId);
+      await removeCartItem(targetId);
+      setCartItems(prev => {
+        const updated = prev.filter(cartItem => cartItem.id !== targetId);
+        setSelectedItems(prevSelected => {
+          const next = new Set(prevSelected);
+          next.delete(targetId);
+          if (next.size === 0 && updated.length > 0) {
+            updated.forEach(cartItem => next.add(cartItem.id));
+          }
+          return next;
+        });
+        return updated;
+      });
+    } catch (error: any) {
+      Alert.alert(
+        'Remove Failed',
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          'Unable to remove item. Please try again.',
+      );
+    } finally {
+      setRemovingItemId(null);
+      setConfirmRemoveVisible(false);
+      setPendingRemovalItem(null);
+    }
+  }, [pendingRemovalItem]);
+
+  const handleCheckout = useCallback(async () => {
+    if (cartItems.length === 0) {
+      Alert.alert('Cart Empty', 'Please add items to cart before checkout.');
+      return;
+    }
+
+    try {
+      setCheckoutLoading(true);
+      const selectedIds =
+        selectedItems.size > 0
+          ? Array.from(selectedItems)
+          : cartItems.map(item => item.id);
+      const payload: Record<string, any> = {
+        delivery_address_id: deliveryAddress?.id,
+        delivery_address_text: addressLine ?? 'Manual address',
+        delivery_datetime: new Date().toISOString(),
+        contact_phone: deliveryAddress?.phone ?? '+91-0000000000',
+        payment_method: 'Cash on Delivery',
+        note: '',
+        shipping_amount: billDetails.deliveryFees.toFixed(2).toString(),
+        cart_item_ids: selectedIds,
+      };
+      if (!deliveryAddress?.id) {
+        delete payload.delivery_address_id;
+      }
+      const response = await checkoutCart(payload);
+      navigation.replace('PaymentConfirmation', {
+        order: response,
+        deliveryAddress: {
+          name: deliveryAddress?.name ?? 'Delivery Address',
+          addressLine1: addressLine ?? payload.delivery_address_text ?? '',
+          phone: deliveryAddress?.phone ?? payload.contact_phone,
+        },
+        paymentMethod: payload.payment_method,
+      });
+      setCartItems([]);
+      setSelectedItems(new Set());
+    } catch (error: any) {
+      Alert.alert(
+        'Checkout Failed',
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          'Unable to complete checkout.',
+      );
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }, [
+    cartItems,
+    selectedItems,
+    deliveryAddress,
+    addressLine,
+    billDetails.deliveryFees,
+  ]);
+
+  const handleToggleSelection = useCallback((itemId: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -112,63 +431,136 @@ const MyCart = ({ navigation }: any) => {
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: vs(100) }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchCart('refresh')}
+            tintColor={COLORS.primary}
+          />
+        }
       >
-        {cartItems.map(item => (
-          <View key={item.id} style={styles.cartCard}>
-            <View style={styles.rowBetween}>
-              <View style={{ flexDirection: 'row', gap: 2 }}>
-                <TouchableOpacity
-                  onPress={() => setSelectedItem(item.id)}
-                  style={[
-                    styles.radio,
-                    selectedItem === item.id && styles.radioActive,
-                  ]}
+        {error ? (
+          <TouchableOpacity
+            style={styles.errorBanner}
+            onPress={() => fetchCart()}
+          >
+            <Icon name="error-outline" size={ms(18)} color={COLORS.accentRed} />
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText}>Tap to retry</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {loading && cartItems.length === 0 ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.loaderText}>Loading your cart...</Text>
+          </View>
+        ) : null}
+
+        {cartItems.length === 0 && !loading && !error ? (
+          <View style={styles.emptyContainer}>
+            <Icon name="shopping-cart" size={80} color={COLORS.gray700} />
+            <Text style={styles.emptyText}>Your cart is empty</Text>
+            <Text style={styles.emptySubtext}>
+              Add products to view them here.
+            </Text>
+          </View>
+        ) : null}
+
+        {cartItems.map(item => {
+          const isSelected = selectedItems.has(item.id);
+          return (
+            <View key={item.id} style={styles.cartCard}>
+              <View style={styles.rowBetween}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                  }}
                 >
-                  {selectedItem === item.id && (
-                    <Icon name="check" size={ms(14)} color="#fff" />
-                  )}
-                </TouchableOpacity>
+                  <View style={styles.selectionColumn}>
+                    <TouchableOpacity
+                      onPress={() => handleToggleSelection(item.id)}
+                      style={[
+                        styles.checkbox,
+                        isSelected && styles.checkboxActive,
+                      ]}
+                    >
+                      {isSelected && (
+                        <Icon name="check" size={ms(14)} color={COLORS.white} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <Image
+                    source={
+                      item.imageUrl ? { uri: item.imageUrl } : fallbackImage
+                    }
+                    style={styles.cartImage}
+                  />
+                  <View style={styles.cartDetails}>
+                    <Text style={styles.title}>{item.title}</Text>
+                    {item.seller ? (
+                      <Text style={styles.seller}>Seller - {item.seller}</Text>
+                    ) : null}
 
-                <Image source={item.image} style={styles.cartImage} />
-                <View style={styles.cartDetails}>
-                  <Text style={styles.title}>{item.title}</Text>
-                  <Text style={styles.seller}>Seller - {item.seller}</Text>
+                    <Text style={styles.qtyText}>Qty - {item.qtyLabel}</Text>
 
-                  <Text style={styles.qtyText}>Qty - {item.qty}</Text>
-
-                  <View style={styles.qtyContainer}>
-                    <Text style={styles.deliveryText}>
-                      Delivery by {item.deliveryDate}
-                    </Text>
-
+                    <View style={styles.qtyContainer}>
+                      <Text style={styles.deliveryText}>
+                        {item.deliveryDate
+                          ? `${item.deliveryDate}`
+                          : 'Delivery in 3 days'}
+                      </Text>
+                    </View>
                     <View style={styles.priceRow}>
                       <Text style={styles.price}>Rs {item.price}</Text>
-                      <Text style={styles.oldPrice}>Rs {item.oldPrice}</Text>
+                      {item.oldPrice && item.oldPrice > item.price ? (
+                        <Text style={styles.oldPrice}>Rs {item.oldPrice}</Text>
+                      ) : null}
                     </View>
                   </View>
                 </View>
+                <TouchableOpacity
+                  disabled={removingItemId === item.id}
+                  onPress={() => handleRemoveItem(item)}
+                >
+                  {removingItemId === item.id ? (
+                    <ActivityIndicator size="small" color={COLORS.black} />
+                  ) : (
+                    <Icon name="close" size={ms(20)} color={COLORS.black} />
+                  )}
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity>
-                <Icon name="close" size={ms(20)} color="#000" />
-              </TouchableOpacity>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         {/* Delivery Section */}
         <View style={styles.deliveryContainer}>
           <Text style={styles.deliveryTitle}>
-            Delivery To - <Text style={styles.deliveryName}>Rahul Sharma</Text>
+            Delivery To -{' '}
+            <Text style={styles.deliveryName}>
+              {deliveryAddress?.name ?? 'Add address'}
+            </Text>
           </Text>
-          <Text style={styles.deliveryText2}>
-            #1235, Street 5, Mumbai, Maharashtra, 16089
-          </Text>
-          <Text style={styles.deliveryText2}>Mobile - 9876543210</Text>
+          {addressLine ? (
+            <Text style={styles.deliveryText2}>{addressLine}</Text>
+          ) : (
+            <Text style={styles.deliveryText2}>
+              No delivery address selected
+            </Text>
+          )}
+          {deliveryAddress?.phone ? (
+            <Text style={styles.deliveryText2}>
+              Mobile - {deliveryAddress.phone}
+            </Text>
+          ) : null}
           <TouchableOpacity
             style={styles.editIcon}
-            onPress={() => navigation.navigate(AddAddress)}
+            onPress={() => navigation.navigate('AddAddress')}
           >
-            <Icon name="edit" size={ms(18)} color="#000" />
+            <Icon name="edit" size={ms(18)} color={COLORS.black} />
           </TouchableOpacity>
         </View>
 
@@ -178,76 +570,137 @@ const MyCart = ({ navigation }: any) => {
 
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Item Total</Text>
-            <Text style={styles.billAmount}>Rs {itemTotal}</Text>
+            <Text style={styles.billAmount}>Rs {billDetails.itemTotal}</Text>
           </View>
 
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Delivery Fees</Text>
-            <Text style={styles.billAmount}>Rs {deliveryFees}</Text>
+            <Text style={styles.billAmount}>Rs {billDetails.deliveryFees}</Text>
           </View>
 
           <View style={styles.separator} />
 
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Platform Fees</Text>
-            <Text style={styles.billAmount}>Rs {platformFees}</Text>
+            <Text style={styles.billAmount}>Rs {billDetails.platformFees}</Text>
           </View>
 
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>GST</Text>
-            <Text style={styles.billAmount}>Rs {gst}</Text>
+            <Text style={styles.billAmount}>Rs {billDetails.gst}</Text>
           </View>
 
           <View style={styles.separator} />
 
           <View style={styles.billRow}>
             <Text style={styles.totalLabel}>To Pay</Text>
-            <Text style={styles.totalAmount}>Rs {totalAmount}</Text>
+            <Text style={styles.totalAmount}>Rs {billDetails.totalAmount}</Text>
           </View>
         </View>
 
-        {/* BestSellers Product list */}
-        <View style={{ marginTop: 10, backgroundColor: '#fff' }}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>BESTSELLERS FROM CEMEX</Text>
-            <TouchableOpacity
-              style={styles.seeAllButton}
-              onPress={() => navigation.navigate('ProductList')}
-            >
-              <Text style={styles.seeAllText}>See all</Text>
-              <Ion name="chevron-forward" size={14} color="#858383" />
-            </TouchableOpacity>
-          </View>
+        {bestsellerProducts.length > 0 ? (
+          <View style={{ marginTop: 10, backgroundColor: COLORS.white }}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>BESTSELLERS FOR YOU</Text>
+              <TouchableOpacity
+                style={styles.seeAllButton}
+                onPress={() => navigation.navigate('ProductList')}
+              >
+                <Text style={styles.seeAllText}>See all</Text>
+                <Ion
+                  name="chevron-forward"
+                  size={14}
+                  color={COLORS.textStone}
+                />
+              </TouchableOpacity>
+            </View>
 
-          <FlatList
-            data={bestsellers}
-            horizontal
-            scrollEnabled={false}
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <ProductCard
-                item={item}
-                variant="horizontal"
-                onPress={() =>
-                  navigation.navigate('ProductDetail', { product: item })
-                }
-              />
-            )}
-            contentContainerStyle={{ paddingVertical: 10, marginLeft: 10 }}
-          />
-        </View>
+            <FlatList
+              data={bestsellerProducts}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <ProductCard
+                  item={item}
+                  variant="horizontal"
+                  onPress={() =>
+                    navigation.navigate('ProductDetail', { product: item })
+                  }
+                />
+              )}
+              contentContainerStyle={{ paddingVertical: 10, marginLeft: 10 }}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Fixed Bottom Checkout Button */}
       <View style={styles.bottomContainer}>
         <TouchableOpacity
-          style={styles.checkoutButton}
-          onPress={() => navigation.navigate('PaymentConfirmation')}
+          style={[
+            styles.checkoutButton,
+            (checkoutLoading ||
+              cartItems.length === 0 ||
+              selectedItems.size === 0) &&
+              styles.checkoutButtonDisabled,
+          ]}
+          onPress={handleCheckout}
+          disabled={
+            checkoutLoading ||
+            cartItems.length === 0 ||
+            selectedItems.size === 0
+          }
         >
-          <Text style={styles.checkoutText}>Checkout</Text>
+          {checkoutLoading ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <Text style={styles.checkoutText}>Checkout</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={confirmRemoveVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelRemove}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmTitle}>Remove Item</Text>
+            <Text style={styles.confirmMessage}>
+              {pendingRemovalItem
+                ? `Remove "${pendingRemovalItem.title}" from your cart?`
+                : 'Remove this item from your cart?'}
+            </Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.outlineButton]}
+                onPress={handleCancelRemove}
+                disabled={removingItemId != null}
+              >
+                <Text
+                  style={[styles.modalButtonText, styles.outlineButtonText]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.destructiveButton]}
+                onPress={handleConfirmRemove}
+                disabled={removingItemId === pendingRemovalItem?.id}
+              >
+                {removingItemId === pendingRemovalItem?.id ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Remove</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -257,7 +710,7 @@ export default MyCart;
 const styles = ScaledSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -272,7 +725,7 @@ const styles = ScaledSheet.create({
   activeLine: {
     width: '40@s',
     height: '4@vs',
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     borderRadius: '2@s',
     marginRight: '6@s',
   },
@@ -280,7 +733,7 @@ const styles = ScaledSheet.create({
   inactiveLine: {
     width: '30@s',
     height: '3@vs',
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.gray700,
     borderRadius: '2@s',
     marginRight: '6@s',
   },
@@ -288,13 +741,13 @@ const styles = ScaledSheet.create({
   activeStep: {
     fontSize: '13@ms',
     fontWeight: '500',
-    color: '#000',
+    color: COLORS.black,
     marginRight: '6@s',
   },
 
   inactiveStep: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
     marginRight: '6@s',
   },
@@ -303,9 +756,9 @@ const styles = ScaledSheet.create({
     flex: 1,
   },
   cartCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderWidth: 0.8,
-    borderColor: '#eee',
+    borderColor: COLORS.gray925,
     borderRadius: '8@s',
     padding: '10@s',
     marginVertical: '8@vs',
@@ -315,21 +768,33 @@ const styles = ScaledSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  radio: {
-    width: '16@s',
-    height: '16@s',
-    borderRadius: '2@s',
-    borderWidth: 1,
-    borderColor: '#aaa',
+  selectionColumn: {
+    alignItems: 'center',
     marginRight: '4@s',
-    justifyContent: 'flex-start',
+    marginTop: '2@vs',
   },
-  radioActive: {
-    backgroundColor: '#000',
+  checkbox: {
+    width: '18@s',
+    height: '18@s',
+    borderRadius: '4@s',
+    borderWidth: 1,
+    borderColor: COLORS.gray700,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+  },
+  checkboxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  checkboxLabel: {
+    marginTop: '4@vs',
+    fontSize: '10@ms',
+    color: COLORS.textAsh,
   },
   cartImage: {
     width: '80@s',
-    height: '100@s',
+    height: '80@s',
     borderRadius: '6@s',
   },
   cartDetails: {
@@ -340,11 +805,11 @@ const styles = ScaledSheet.create({
     width: '55%',
     fontSize: '12@ms',
     fontWeight: '500',
-    color: '#000',
+    color: COLORS.black,
   },
   seller: {
     fontSize: '11@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
     marginVertical: '2@vs',
   },
   qtyContainer: {
@@ -354,18 +819,18 @@ const styles = ScaledSheet.create({
     gap: '25@s',
   },
   qtyText: {
-    width: '40%',
+    // width: '40%',
     fontSize: '12@ms',
-    color: '#000',
-    backgroundColor: '#E0E3E4',
+    color: COLORS.black,
+    backgroundColor: COLORS.gray850,
     paddingHorizontal: '6@s',
-    marginRight: '10@s',
+    // marginRight: '10@s',
     marginBottom: '2@s',
   },
   deliveryText: {
     fontSize: '10@ms',
-    color: '#fff',
-    backgroundColor: '#D66651',
+    color: COLORS.white,
+    backgroundColor: COLORS.accentClay,
     paddingHorizontal: '8@s',
     paddingVertical: '2@vs',
   },
@@ -376,27 +841,27 @@ const styles = ScaledSheet.create({
   price: {
     fontSize: '13@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginRight: '4@s',
   },
   oldPrice: {
     fontSize: '11@ms',
-    color: '#999',
+    color: COLORS.gray400,
     textDecorationLine: 'line-through',
   },
   deliveryContainer: {
     marginTop: '10@vs',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: '12@s',
     paddingHorizontal: '25@s',
     borderRadius: '8@s',
     borderWidth: 0.8,
-    borderColor: '#eee',
+    borderColor: COLORS.gray925,
     position: 'relative',
   },
   deliveryTitle: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '900',
   },
   deliveryName: {
@@ -404,7 +869,7 @@ const styles = ScaledSheet.create({
   },
   deliveryText2: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
     marginTop: '3@vs',
   },
@@ -414,7 +879,7 @@ const styles = ScaledSheet.create({
     top: '10@vs',
   },
   billContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '10@s',
     paddingHorizontal: '30@s',
     padding: '10@s',
@@ -423,7 +888,7 @@ const styles = ScaledSheet.create({
   billTitle: {
     fontSize: '13@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '10@vs',
   },
   billRow: {
@@ -433,28 +898,28 @@ const styles = ScaledSheet.create({
   },
   billLabel: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
   },
   billAmount: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
   },
   separator: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: COLORS.gray825,
     marginVertical: '8@vs',
   },
   totalLabel: {
     fontSize: '13@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   totalAmount: {
     fontSize: '13@ms',
     fontWeight: '900',
-    color: '#000',
+    color: COLORS.black,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -467,7 +932,7 @@ const styles = ScaledSheet.create({
     fontSize: '13@ms',
     fontWeight: '700',
     marginTop: '15@vs',
-    color: '#000',
+    color: COLORS.black,
   },
   seeAllButton: {
     flexDirection: 'row',
@@ -476,28 +941,222 @@ const styles = ScaledSheet.create({
   },
   seeAllText: {
     fontSize: '12@ms',
-    color: '#858383',
+    color: COLORS.textStone,
     fontWeight: '400',
+  },
+  emptyContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: '40@vs',
+  },
+  emptyText: {
+    fontSize: '18@ms',
+    fontWeight: '600',
+    color: COLORS.textSemiDark,
+    marginTop: '20@vs',
+    marginBottom: '8@vs',
+  },
+  emptySubtext: {
+    fontSize: '14@ms',
+    color: COLORS.textAsh,
+    textAlign: 'center',
+  },
+  confirmationCard: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: '16@s',
+    marginVertical: '20@vs',
+    borderRadius: '12@s',
+    paddingVertical: '20@vs',
+    paddingHorizontal: '16@s',
+    alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: COLORS.gray900,
+  },
+  confirmationIcon: {
+    width: '48@s',
+    height: '48@s',
+    borderRadius: '24@s',
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '12@vs',
+  },
+  confirmationTitle: {
+    textAlign: 'center',
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: '8@vs',
+  },
+  confirmationTime: {
+    fontSize: '12@ms',
+    color: COLORS.textAsh,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginVertical: '10@vs',
+    marginHorizontal: '8@s',
+    gap: '8@s',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8@s',
+    paddingVertical: '20@vs',
+  },
+  loaderText: {
+    fontSize: '13@ms',
+    color: COLORS.textDark,
   },
   bottomContainer: {
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderTopWidth: 0.5,
-    borderColor: '#ddd',
+    borderColor: COLORS.gray800,
     padding: '10@s',
   },
   checkoutButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '8@s',
     alignItems: 'center',
     paddingVertical: '10@vs',
     marginHorizontal: '20@s',
   },
+  checkoutButtonDisabled: {
+    opacity: 0.6,
+  },
   checkoutText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '14@ms',
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '20@s',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: COLORS.white,
+    borderRadius: '16@s',
+    paddingVertical: '24@vs',
+    paddingHorizontal: '20@s',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: '12@vs',
+    right: '12@s',
+  },
+  modalTitle: {
+    fontSize: '18@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: '8@vs',
+  },
+  modalSubtitle: {
+    fontSize: '13@ms',
+    color: COLORS.textAsh,
+    textAlign: 'center',
+    marginBottom: '20@vs',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: '12@s',
+  },
+  modalButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: '10@s',
+    paddingVertical: '12@vs',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: COLORS.white,
+    fontSize: '14@ms',
+    fontWeight: '600',
+  },
+  confirmModalContent: {
+    width: '90%',
+    backgroundColor: COLORS.white,
+    borderRadius: '16@s',
+    paddingVertical: '24@vs',
+    paddingHorizontal: '20@s',
+  },
+  confirmTitle: {
+    fontSize: '18@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: '8@vs',
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: '13@ms',
+    color: COLORS.textSemiDark,
+    textAlign: 'center',
+    marginBottom: '20@vs',
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: '12@s',
+  },
+  outlineButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.gray800,
+  },
+  outlineButtonText: {
+    color: COLORS.textDark,
+  },
+  destructiveButton: {
+    backgroundColor: COLORS.accentRed ?? '#C62828',
+  },
+  createProjectContent: {
+    width: '90%',
+    backgroundColor: COLORS.white,
+    borderRadius: '16@s',
+    paddingVertical: '24@vs',
+    paddingHorizontal: '20@s',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  projectInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: COLORS.gray800,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '10@vs',
+    fontSize: '14@ms',
+    marginTop: '16@vs',
+    marginBottom: '12@vs',
+    color: COLORS.black,
+  },
+  saveProjectButton: {
+    width: '100%',
+    marginTop: '4@vs',
   },
 });

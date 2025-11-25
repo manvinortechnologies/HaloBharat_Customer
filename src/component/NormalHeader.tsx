@@ -3,24 +3,30 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { ScaledSheet } from 'react-native-size-matters';
+import COLORS from '../constants/colors';
 
 interface NormalHeaderProps {
   title?: string;
+  showBackButton?: boolean;
 }
 
-const NormalHeader: React.FC<NormalHeaderProps> = ({ title = 'Title' }) => {
+const NormalHeader: React.FC<NormalHeaderProps> = ({
+  title = 'Title',
+  showBackButton = true,
+}) => {
   const navigation = useNavigation<any>();
 
   return (
     <View style={styles.container}>
       {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Icon name="chevron-back" size={24} color="#000" />
-      </TouchableOpacity>
-
+      {showBackButton && (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="chevron-back" size={24} color={COLORS.black} />
+        </TouchableOpacity>
+      )}
       {/* Title */}
       <Text style={styles.title}>{title}</Text>
     </View>
@@ -35,9 +41,9 @@ const styles = ScaledSheet.create({
     alignItems: 'center',
     height: '50@vs',
     paddingHorizontal: '10@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -49,6 +55,6 @@ const styles = ScaledSheet.create({
   title: {
     fontSize: '18@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
 });

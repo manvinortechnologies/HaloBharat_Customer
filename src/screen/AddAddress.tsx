@@ -1,18 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
   Text,
   View,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { createAddress, updateAddress } from '../api/addresses';
+
+interface RouteParams {
+  address?: {
+    id: string | number;
+    title?: string;
+    full_name?: string;
+    phone?: string;
+    building?: string;
+    locality?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    instructions?: string;
+    // Fallback for normalized addresses
+    name?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    addressLine3?: string;
+    mobile?: string;
+    type?: string;
+  };
+}
 
 const AddAddress = () => {
+  const navigation = useNavigation<any>();
+  const route = useRoute();
+  const params = (route.params as RouteParams) || {};
+  const isEditMode = !!params.address;
+  const addressId = params.address?.id;
+
   const [addressType, setAddressType] = useState('Home');
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '+91 ',
@@ -21,7 +55,43 @@ const AddAddress = () => {
     pincode: '',
     state: '',
     city: '',
+    instructions: '',
   });
+
+  // Populate form when editing
+  useEffect(() => {
+    if (isEditMode && params.address) {
+      const address = params.address;
+
+      // Map address type back from API format
+      const typeMap: Record<string, string> = {
+        Home: 'Home',
+        Work: 'Office',
+        Office: 'Office',
+        Other: 'Other',
+      };
+
+      // Use raw API data if available, otherwise fallback to normalized data
+      const addressTitle = address.title || address.type || 'Home';
+      const mappedType = typeMap[addressTitle] || 'Home';
+
+      setAddressType(mappedType);
+      setFormData({
+        fullName: address.full_name || address.name || '',
+        phoneNumber: address.phone
+          ? `+91 ${address.phone.replace('+91', '').trim()}`
+          : address.mobile
+          ? `+91 ${address.mobile.replace('+91', '').trim()}`
+          : '+91 ',
+        houseNumber: address.building || address.addressLine1 || '',
+        locality: address.locality || address.addressLine2 || '',
+        pincode: address.pincode || '',
+        state: address.state || '',
+        city: address.city || '',
+        instructions: address.instructions || '',
+      });
+    }
+  }, [isEditMode, params.address]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -30,9 +100,75 @@ const AddAddress = () => {
     }));
   };
 
-  const handleSaveAddress = () => {
-    console.log('Saving address:', { ...formData, addressType });
-    // Add your save address logic here
+  const handleSaveAddress = async () => {
+    if (!isFormValid()) {
+      Alert.alert('Validation Error', 'Please fill all required fields');
+      return;
+    }
+
+    // Validate phone number
+    const phoneNumber = formData.phoneNumber.replace('+91 ', '').trim();
+    if (phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
+      Alert.alert(
+        'Validation Error',
+        'Please enter a valid 10-digit phone number',
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Map form data to API payload format
+      // Map address type: "Office" in UI maps to "Work" in API
+      const addressTitle =
+        addressType === 'Home'
+          ? 'Home'
+          : addressType === 'Office'
+          ? 'Work'
+          : 'Other';
+
+      const payload = {
+        title: addressTitle,
+        full_name: formData.fullName.trim(),
+        phone: phoneNumber,
+        building: formData.houseNumber.trim(),
+        locality: formData.locality.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        pincode: formData.pincode.trim(),
+        instructions: formData.instructions?.trim() || '',
+        latitude: null,
+        longitude: null,
+        is_default: false,
+      };
+
+      if (isEditMode && addressId) {
+        await updateAddress(addressId, payload);
+        Alert.alert('Success', 'Address updated successfully', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        await createAddress(payload);
+        Alert.alert('Success', 'Address saved successfully', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to save address. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isFormValid = () => {
@@ -49,7 +185,7 @@ const AddAddress = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <NormalHeader title="Add Addresses" />
+      <NormalHeader title={isEditMode ? 'Edit Address' : 'Add Address'} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -64,7 +200,7 @@ const AddAddress = () => {
             <TextInput
               style={styles.textInput}
               placeholder="Enter your name"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.gray400}
               value={formData.fullName}
               onChangeText={value => handleInputChange('fullName', value)}
             />
@@ -80,7 +216,7 @@ const AddAddress = () => {
               <TextInput
                 style={[styles.textInput, styles.phoneInput]}
                 placeholder="Enter phone number"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.gray400}
                 value={formData.phoneNumber.replace('+91 ', '')}
                 onChangeText={value =>
                   handleInputChange('phoneNumber', '+91 ' + value)
@@ -99,7 +235,7 @@ const AddAddress = () => {
             <TextInput
               style={styles.textInput}
               placeholder="Enter House/Building/Apartment No."
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.gray400}
               value={formData.houseNumber}
               onChangeText={value => handleInputChange('houseNumber', value)}
             />
@@ -113,7 +249,7 @@ const AddAddress = () => {
             <TextInput
               style={styles.textInput}
               placeholder="Enter locality/Area/Street/Sector"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.gray400}
               value={formData.locality}
               onChangeText={value => handleInputChange('locality', value)}
             />
@@ -129,7 +265,7 @@ const AddAddress = () => {
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter pincode"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.gray400}
                 value={formData.pincode}
                 onChangeText={value => handleInputChange('pincode', value)}
                 keyboardType="number-pad"
@@ -145,7 +281,7 @@ const AddAddress = () => {
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter state"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.gray400}
                 value={formData.state}
                 onChangeText={value => handleInputChange('state', value)}
               />
@@ -160,7 +296,7 @@ const AddAddress = () => {
             <TextInput
               style={styles.textInput}
               placeholder="Enter city"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.gray400}
               value={formData.city}
               onChangeText={value => handleInputChange('city', value)}
             />
@@ -207,15 +343,39 @@ const AddAddress = () => {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Delivery Instructions (Optional) */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.label}>Delivery Instructions (Optional)</Text>
+            </View>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              placeholder="Add any special delivery instructions"
+              placeholderTextColor={COLORS.gray400}
+              value={formData.instructions}
+              onChangeText={value => handleInputChange('instructions', value)}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
         </View>
 
         {/* Save Address Button */}
         <TouchableOpacity
-          style={[styles.saveButton]}
+          style={[
+            styles.saveButton,
+            (!isFormValid() || loading) && styles.saveButtonDisabled,
+          ]}
           onPress={handleSaveAddress}
-          disabled={!isFormValid()}
+          disabled={!isFormValid() || loading}
         >
-          <Text style={styles.saveButtonText}>Save Address</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Address</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -227,7 +387,7 @@ export default AddAddress;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   scrollView: {
     flex: 1,
@@ -248,16 +408,16 @@ const styles = ScaledSheet.create({
   label: {
     fontSize: '14@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginLeft: '8@s',
   },
   textInput: {
     borderWidth: 0.5,
-    borderColor: '#696969',
+    borderColor: COLORS.textAsh,
     paddingHorizontal: '12@s',
     paddingVertical: '10@vs',
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
   },
   phoneInputContainer: {
     flexDirection: 'row',
@@ -265,14 +425,14 @@ const styles = ScaledSheet.create({
   },
   phonePrefix: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingVertical: '10@vs',
     paddingLeft: '12@s',
     borderWidth: 0.5,
     borderRightWidth: 0,
-    borderColor: '#696969',
+    borderColor: COLORS.textAsh,
   },
   phoneInput: {
     flex: 1,
@@ -300,32 +460,32 @@ const styles = ScaledSheet.create({
     justifyContent: 'center',
     paddingVertical: '8@vs',
     borderWidth: 0.5,
-    borderColor: '#696969',
+    borderColor: COLORS.textAsh,
     marginRight: '8@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   addressTypeButtonSelected: {
-    backgroundColor: '#1C3452',
-    borderColor: '#1C3452',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   addressTypeText: {
     fontSize: '14@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     fontWeight: '400',
     marginLeft: '8@s',
   },
   addressTypeTextSelected: {
-    color: '#fff',
+    color: COLORS.white,
   },
   saveButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: '16@vs',
     borderRadius: '8@s',
     marginBottom: '30@vs',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -335,14 +495,18 @@ const styles = ScaledSheet.create({
     elevation: 5,
   },
   saveButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.gray700,
     shadowOpacity: 0,
     elevation: 0,
   },
   saveButtonText: {
     fontSize: '18@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '600',
     marginLeft: '8@s',
+  },
+  textArea: {
+    minHeight: '80@vs',
+    paddingTop: '10@vs',
   },
 });

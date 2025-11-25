@@ -73,6 +73,20 @@ When you want to forcefully reload, for example to reset the state of your app, 
 - **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
 - **iOS**: Press <kbd>R</kbd> in iOS Simulator.
 
+## Firebase Phone Authentication Setup
+
+1. Create a Firebase project (or reuse an existing one) and enable the **Phone** sign-in provider under **Build → Authentication → Sign-in method**.
+2. Register the apps with the exact bundle IDs used here (`com.halobharat` for Android and `HaloBharat` for iOS) and download the config files:
+   - Place `google-services.json` inside `android/app`.
+   - Place `GoogleService-Info.plist` inside `ios/HaloBharat`.
+3. Provide Firebase with your Android SHA-1/SHA-256 fingerprints so phone auth can verify requests (`keytool -list -v -alias androiddebugkey -keystore android/app/debug.keystore`).
+4. Install native dependencies after changing Firebase config:
+   ```sh
+   npm install
+   npx pod-install ios
+   ```
+5. Rebuild the apps (`npm run android` / `npm run ios`). The splash screen now routes signed-in users directly to the main app and shows the login flow for signed-out users.
+
 ## Congratulations! :tada:
 
 You've successfully run and modified your React Native App. :partying_face:

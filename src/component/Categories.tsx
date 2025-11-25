@@ -1,78 +1,176 @@
-import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScaledSheet } from 'react-native-size-matters';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FlatList,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
+import { s, ScaledSheet } from 'react-native-size-matters';
 import Header from './Header';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import COLORS from '../constants/colors';
+import { getCategories } from '../api/categories';
+import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 type RootStackParamList = {
-  ProductCategoryList: undefined;
+  ProductCategoryList: { category: CategoryItem };
   Categories: undefined;
 };
 
+interface CategoryItem {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
 const Categories = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  // Enhanced categories data with images
-  const categories = [
-    { id: '1', name: 'Paints', image: require('../assets/paints.png') },
-    { id: '2', name: 'Stones', image: require('../assets/stones.png') },
-    { id: '3', name: 'Timber', image: require('../assets/timber.png') },
-    { id: '4', name: 'Tiles', image: require('../assets/tiles.png') },
-    { id: '5', name: 'Bricks', image: require('../assets/stones.png') },
-    { id: '6', name: 'Pipes', image: require('../assets/steel.png') },
-    { id: '7', name: 'Cement', image: require('../assets/stones.png') },
-    { id: '8', name: 'Tools', image: require('../assets/timber.png') },
-    { id: '9', name: 'Electrical', image: require('../assets/steel.png') },
-    { id: '10', name: 'Plumbing', image: require('../assets/paints.png') },
-    { id: '11', name: 'Hardware', image: require('../assets/stones.png') },
-    { id: '12', name: 'Furniture', image: require('../assets/timber.png') },
-    { id: '13', name: 'Lighting', image: require('../assets/stones.png') },
-    { id: '14', name: 'Flooring', image: require('../assets/paints.png') },
-    { id: '15', name: 'Roofing', image: require('../assets/stones.png') },
-    { id: '16', name: 'Water Tank', image: require('../assets/paints.png') },
-  ];
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fallbackImage = useMemo(() => require('../assets/paints.png'), []);
 
-  // Function to render each category item
-  const renderCategoryItem = (
-    item: { id: any; name: any; image: any },
-    index: number,
-  ) => (
-    <TouchableOpacity
-      key={item.id}
-      style={styles.categoryItem}
-      onPress={() => navigation.navigate('ProductCategoryList')}
-    >
-      {/* Rounded Image Container */}
-      <View style={styles.imageContainer}>
-        <Image
-          source={item.image}
-          style={styles.categoryImage}
-          resizeMode="cover"
-        />
-      </View>
+  const normalizeCategory = useCallback((item: any, index: number) => {
+    return {
+      id: String(
+        item?.id ?? item?.category_id ?? item?.uuid ?? `category-${index}`,
+      ),
+      name: item?.name ?? item?.title ?? 'Category',
+      imageUrl: item?.logo ?? null,
+    };
+  }, []);
 
-      {/* Category Name */}
-      <Text style={styles.categoryName} numberOfLines={2}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
+  const fetchCategories = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const payload = await getCategories({ page_size: 20 });
+        const listSource = Array.isArray(payload?.results)
+          ? payload.results
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+          ? payload
+          : [];
+        setCategories(listSource.map(normalizeCategory));
+      } catch (err: any) {
+        setError(err?.message || 'Unable to load categories.');
+        setCategories([]);
+      } finally {
+        if (isRefresh) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [normalizeCategory],
   );
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Header />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+  const handleRefresh = useCallback(() => {
+    fetchCategories(true);
+  }, [fetchCategories]);
 
-        {/* Categories Grid - 4 items per row */}
-        <View style={styles.gridContainer}>
-          {categories.map((item, index) => renderCategoryItem(item, index))}
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  const renderCategoryItem = useCallback(
+    ({ item }: { item: CategoryItem }) => (
+      <TouchableOpacity
+        style={styles.categoryItem}
+        onPress={() =>
+          navigation.navigate('ProductCategoryList', { category: item })
+        }
+      >
+        <View style={styles.imageContainer}>
+          {item.imageUrl ? (
+            <Image
+              source={item.imageUrl ? { uri: item.imageUrl } : fallbackImage}
+              style={styles.categoryImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.imageContainer}>
+              <MaterialIcons
+                name="category"
+                size={s(40)}
+                color={COLORS.primary}
+              />
+            </View>
+          )}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        <Text style={styles.categoryName} numberOfLines={2}>
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    ),
+    [fallbackImage, navigation],
+  );
+
+  const renderListHeader = useCallback(() => {
+    if (!error) {
+      return null;
+    }
+    return (
+      <TouchableOpacity
+        style={styles.errorBanner}
+        onPress={() => fetchCategories(false)}
+      >
+        <Icon name="warning-outline" size={18} color={COLORS.accentRed} />
+        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.retryText}>Tap to retry</Text>
+      </TouchableOpacity>
+    );
+  }, [error, fetchCategories]);
+
+  const renderListEmpty = useCallback(() => {
+    if (loading) {
+      return (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.loaderText}>Loading categories...</Text>
+        </View>
+      );
+    }
+    if (!error) {
+      return (
+        <View style={styles.emptyState}>
+          <Icon name="apps-outline" size={32} color={COLORS.gray500} />
+          <Text style={styles.emptyTitle}>No categories available</Text>
+          <Text style={styles.emptySubtitle}>Please try again later.</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [error, loading]);
+
+  return (
+    <View style={styles.container}>
+      <Header />
+      <FlatList
+        data={categories}
+        keyExtractor={item => item.id}
+        renderItem={renderCategoryItem}
+        numColumns={4}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderListEmpty}
+      />
+    </View>
   );
 };
 
@@ -81,42 +179,39 @@ export default Categories;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
-  scrollView: {
-    flex: 1,
+  listContent: {
     paddingHorizontal: '16@s',
+    paddingBottom: '20@vs',
+    paddingTop: '10@vs',
   },
   header: {
     fontSize: '24@ms',
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
     marginTop: '20@vs',
     marginBottom: '24@vs',
     textAlign: 'center',
   },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginHorizontal: '-2.5@s',
-    marginTop: '10@vs',
+  columnWrapper: {
+    // justifyContent: 'space-between',
   },
   categoryItem: {
-    width: '23%', // 4 items per row (100% / 4 - some margin)
+    width: '25%', // 4 items per row (100% / 4 - some margin)
     alignItems: 'center',
     marginBottom: '20@vs',
     padding: '5@s',
   },
   imageContainer: {
-    width: '80@s',
+    width: '60@s',
     height: '60@s',
-    borderRadius: '30@s', // Makes it circular
-    backgroundColor: '#f8f8f8',
+    borderRadius: '60@s', // Makes it circular
+    backgroundColor: COLORS.gray950,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: '8@vs',
-    // shadowColor: '#000',
+    // shadowColor: COLORS.black,
     // shadowOffset: {
     //   width: 0,
     //   height: 2,
@@ -135,8 +230,53 @@ const styles = ScaledSheet.create({
   categoryName: {
     fontSize: '12@ms',
     fontWeight: '500',
-    color: '#333',
+    color: COLORS.textSemiDark,
     textAlign: 'center',
     marginTop: '2@vs',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginTop: '10@vs',
+    gap: '8@s',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8@s',
+    paddingVertical: '20@vs',
+  },
+  loaderText: {
+    fontSize: '13@ms',
+    color: COLORS.textDark,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: '20@vs',
+  },
+  emptyTitle: {
+    marginTop: '8@vs',
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.textDark,
+  },
+  emptySubtitle: {
+    fontSize: '12@ms',
+    color: COLORS.gray500,
   },
 });

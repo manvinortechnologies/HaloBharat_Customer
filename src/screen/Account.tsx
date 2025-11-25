@@ -1,56 +1,145 @@
-import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { ScaledSheet } from 'react-native-size-matters';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
+import { getProfile } from '../api/profile';
+import auth from '@react-native-firebase/auth';
+import { clearAuthData } from '../storage/authStorage';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type RootStackParamList = {
+  LoginScreen: undefined;
+};
 
 const Account = () => {
-  const userData = {
-    fullName: 'Rahul Sharma',
-    phoneNumber: '+91 9876543210',
-    email: 'rahulsharma@gmail.com',
-    gender: 'Female',
-    address: '#1235, Street 5, Mumbai, Maharashtra, 16089',
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getProfile();
+      setProfile(data);
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load profile.');
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const handleDeleteAccount = () => {
+    Alert.alert('Delete Account', 'Account deletion is not supported yet.', [
+      { text: 'OK' },
+    ]);
   };
 
-  const handleDeleteAccount = () => console.log('Delete Account pressed');
-  const handleLogOut = () => console.log('Log Out pressed');
+  const handleLogOut = () => {
+    Alert.alert('Log Out', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await auth().signOut();
+          } catch (err) {
+            console.warn('Failed to sign out of Firebase:', err);
+          }
+          await clearAuthData();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'LoginScreen' as never }],
+          });
+        },
+      },
+    ]);
+  };
 
-  const renderDetail = (label: string, value: string) => (
-    <View style={styles.detailItem}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <View style={styles.inputField}>
-        <Text style={styles.detailValue}>{value}</Text>
+  const renderDetail = (label: string, value?: string | null) => {
+    const displayValue = value && value.length > 0 ? value : 'Not provided';
+    return (
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <View style={styles.inputField}>
+          <Text style={styles.detailValue}>{displayValue}</Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <NormalHeader title="Account" />
+    <View style={styles.container}>
+      <NormalHeader title="Account" showBackButton={false} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.detailsContainer}>
-          {renderDetail('Full Name', userData.fullName)}
-          {renderDetail('Phone Number', userData.phoneNumber)}
-          {renderDetail('Email ID', userData.email)}
-          {renderDetail('Gender', userData.gender)}
-          {renderDetail('Address', userData.address)}
-        </View>
+        {loading ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.loaderText}>Loading profile...</Text>
+          </View>
+        ) : error ? (
+          <TouchableOpacity style={styles.errorBanner} onPress={fetchProfile}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText}>Tap to retry</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.detailsContainer}>
+            {renderDetail('Full Name', profile?.full_name ?? profile?.name)}
+            {renderDetail(
+              'Phone Number',
+              profile?.contact_phone ?? profile?.phone,
+            )}
+            {renderDetail('Email ID', profile?.email)}
+            {renderDetail('Gender', profile?.gender)}
+            {renderDetail(
+              'Address',
+              profile?.address ??
+                [profile?.city, profile?.state, profile?.pincode]
+                  .filter(Boolean)
+                  .join(', '),
+            )}
+            {renderDetail('Role', profile?.role)}
+            {renderDetail('Status', profile?.status)}
+            {renderDetail(
+              'Account Created',
+              profile?.created_at
+                ? new Date(profile.created_at).toLocaleString()
+                : null,
+            )}
+            {renderDetail('Profile ID', profile?.id)}
+          </View>
+        )}
 
         <View style={styles.actionsContainer}>
-          <TouchableOpacity onPress={handleDeleteAccount}>
+          {/* <TouchableOpacity onPress={handleDeleteAccount}>
             <Text style={styles.deleteButtonText}>Delete Account</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity onPress={handleLogOut}>
             <Text style={styles.logoutButtonText}>Log Out</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -59,7 +148,7 @@ export default Account;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   scrollView: {
     flex: 1,
@@ -77,38 +166,68 @@ const styles = ScaledSheet.create({
   },
   detailLabel: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '6@vs',
     fontWeight: '500',
   },
   inputField: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingVertical: '10@vs',
     paddingHorizontal: '12@s',
     borderWidth: 0.5,
-    borderColor: '#000',
+    borderColor: COLORS.black,
   },
   detailValue: {
     fontSize: '15@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '400',
   },
   actionsContainer: {
     marginBottom: '40@vs',
     paddingHorizontal: '16@s',
   },
-  button: {
-    paddingVertical: '8@vs',
-    borderRadius: '8@s',
-    alignItems: 'center',
-    justifyContent: 'center',
+  deleteButtonText: {
+    fontSize: '14@ms',
+    color: COLORS.accentRuby,
+    fontWeight: '600',
     marginBottom: '16@vs',
   },
-  deleteButtonText: { fontSize: '14@ms', color: '#B20808', fontWeight: '600' },
   logoutButtonText: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '600',
     marginTop: '5@vs',
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8@s',
+    paddingVertical: '20@vs',
+  },
+  loaderText: {
+    fontSize: '13@ms',
+    color: COLORS.textDark,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginHorizontal: '12@s',
+    marginBottom: '12@vs',
+    gap: '6@s',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 });

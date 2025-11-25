@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
+import { getNotifications } from '../api/notifications';
 
 type TabType = 'All' | 'Deals' | 'Updates';
 
@@ -23,49 +33,133 @@ interface NotificationItem {
 
 const Notification = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const notifications: NotificationItem[] = [
-    {
-      id: '1',
-      type: 'promotion',
-      title: 'Shop. Sparkle. Save Big this Diwali! upto 10%',
-      description:
-        'Unwrap happiness with exclusive deals, festive combos, and free gifts on every purchase.',
-      image: require('../assets/notificationImg1.png'), // Replace with your image
-      time: 'Today, 12:45 pm',
-      hasButton: true,
-      buttonText: 'Shop Now',
+  const formatTime = (dateString?: string | null) => {
+    if (!dateString) return 'Just now';
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min ago`;
+      if (diffHours < 24)
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+      const isToday =
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear();
+
+      if (isToday) {
+        return `Today, ${date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })}`;
+      }
+
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return 'Just now';
+    }
+  };
+
+  const normalizeNotification = useCallback(
+    (item: any, index: number): NotificationItem => {
+      // Determine notification type based on API response
+      const notificationType =
+        item?.type?.toLowerCase() === 'promotion' ||
+        item?.category === 'promotion' ||
+        item?.category === 'deal'
+          ? 'promotion'
+          : item?.type?.toLowerCase() === 'order' || item?.category === 'order'
+          ? 'order'
+          : 'update';
+
+      return {
+        id: String(item?.id ?? `notification-${index}`),
+        type: notificationType,
+        title: item?.title ?? item?.subject ?? item?.message ?? 'Notification',
+        description:
+          item?.description ??
+          item?.body ??
+          item?.message ??
+          item?.content ??
+          '',
+        image: item?.image ? { uri: item.image } : undefined,
+        images: Array.isArray(item?.images)
+          ? item.images.map((img: any) =>
+              typeof img === 'string' ? { uri: img } : img,
+            )
+          : undefined,
+        time: formatTime(item?.created_at ?? item?.timestamp ?? item?.date),
+        hasButton: Boolean(item?.has_button ?? item?.action_url),
+        buttonText: item?.button_text ?? item?.action_text ?? 'Shop Now',
+        icon:
+          notificationType === 'order'
+            ? 'check-circle'
+            : notificationType === 'update'
+            ? 'info'
+            : undefined,
+        iconColor:
+          notificationType === 'order'
+            ? COLORS.successBright
+            : notificationType === 'update'
+            ? COLORS.primary
+            : undefined,
+      };
     },
-    {
-      id: '2',
-      type: 'promotion',
-      title: 'Shop. Sparkle. Save Big this Diwali! upto 10%',
-      description:
-        'Unwrap happiness with exclusive deals, festive combos, and free gifts on every purchase.',
-      image: require('../assets/notificationImg2.png'),
-      time: 'Today, 12:45 pm',
-      hasButton: true,
-      buttonText: 'Shop Now',
+    [],
+  );
+
+  const fetchNotifications = useCallback(
+    async (mode: 'default' | 'refresh' = 'default') => {
+      if (mode === 'refresh') {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const payload = await getNotifications();
+        const listSource = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+          ? payload
+          : [];
+        setNotifications(listSource.map(normalizeNotification));
+      } catch (err: any) {
+        setError(err?.message || 'Unable to load notifications.');
+        setNotifications([]);
+      } finally {
+        if (mode === 'refresh') {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
     },
-    {
-      id: '3',
-      type: 'order',
-      title: 'Order Dispatched',
-      description: 'Good news! Your cement order has been dispatched 📦',
-      time: 'Today, 12:45 pm',
-      icon: 'check-circle',
-      iconColor: '#4CAF50',
-    },
-    {
-      id: '4',
-      type: 'order',
-      title: 'Order Dispatched',
-      description: 'Good news! Your cement order has been dispatched 📦',
-      time: 'Today, 12:45 pm',
-      icon: 'check-circle',
-      iconColor: '#4CAF50',
-    },
-  ];
+    [normalizeNotification],
+  );
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const filterNotifications = () => {
     if (activeTab === 'All') return notifications;
@@ -201,13 +295,54 @@ const Notification = ({ navigation }: any) => {
       </View>
 
       {/* Notification List */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {filterNotifications().map(item => renderNotificationCard(item))}
-      </ScrollView>
+      {error && !loading && (
+        <TouchableOpacity
+          style={styles.errorBanner}
+          onPress={() => fetchNotifications()}
+        >
+          <Icon name="error-outline" size={18} color={COLORS.accentRed} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.retryText}>Tap to retry</Text>
+        </TouchableOpacity>
+      )}
+
+      {loading && notifications.length === 0 ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.loaderText}>Loading notifications...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchNotifications('refresh')}
+              colors={[COLORS.primary]}
+            />
+          }
+        >
+          {filterNotifications().length > 0 ? (
+            filterNotifications().map(item => renderNotificationCard(item))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Icon
+                name="notifications-none"
+                size={48}
+                color={COLORS.textAsh}
+              />
+              <Text style={styles.emptyText}>No notifications</Text>
+              <Text style={styles.emptySubtext}>
+                {activeTab === 'All'
+                  ? "You're all caught up!"
+                  : `No ${activeTab.toLowerCase()} notifications`}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -217,7 +352,7 @@ export default Notification;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -231,22 +366,22 @@ const styles = ScaledSheet.create({
     paddingHorizontal: '20@s',
     paddingVertical: '8@vs',
     borderRadius: '5@s',
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     minWidth: '80@s',
     alignItems: 'center',
     borderWidth: 0.5,
-    borderColor: '#696969',
+    borderColor: COLORS.textAsh,
   },
   activeTab: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
   },
   tabText: {
     fontSize: '14@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     fontWeight: '400',
   },
   activeTabText: {
-    color: '#fff',
+    color: COLORS.white,
   },
   scrollView: {
     flex: 1,
@@ -255,12 +390,12 @@ const styles = ScaledSheet.create({
     padding: '16@s',
   },
   notificationCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '12@s',
     marginBottom: '12@vs',
     overflow: 'hidden',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -271,11 +406,11 @@ const styles = ScaledSheet.create({
   promoImage: {
     width: '100%',
     height: '140@vs',
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
   },
   multiImageContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFF5F0',
+    backgroundColor: COLORS.whiteSoft,
     padding: '12@s',
     gap: '8@s',
   },
@@ -289,13 +424,13 @@ const styles = ScaledSheet.create({
     width: '100%',
     height: '100@vs',
     borderRadius: '12@s',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.gray1025,
   },
   discountBadge: {
     position: 'absolute',
     top: '8@vs',
     left: '8@s',
-    backgroundColor: '#FF6B35',
+    backgroundColor: COLORS.accentOrange,
     borderRadius: '50@s',
     width: '45@s',
     height: '45@s',
@@ -305,13 +440,13 @@ const styles = ScaledSheet.create({
   discountBadgeText: {
     fontSize: '14@ms',
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.white,
     lineHeight: '16@vs',
   },
   discountBadgeSubtext: {
     fontSize: '10@ms',
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
   },
   promoContent: {
     padding: '16@s',
@@ -319,12 +454,12 @@ const styles = ScaledSheet.create({
   promoTitle: {
     fontSize: '15@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '6@vs',
   },
   promoDescription: {
     fontSize: '13@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
     lineHeight: '18@vs',
     marginBottom: '12@vs',
   },
@@ -334,29 +469,29 @@ const styles = ScaledSheet.create({
     alignItems: 'center',
   },
   shopNowButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: '28@s',
     paddingVertical: '6@vs',
     borderRadius: '5@s',
   },
   shopNowText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '14@ms',
     fontWeight: '500',
   },
   timeText: {
     alignSelf: 'flex-end',
     fontSize: '11@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
   },
   orderCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '12@s',
     paddingHorizontal: '16@s',
     paddingVertical: '8@vs',
     marginBottom: '12@vs',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -379,11 +514,60 @@ const styles = ScaledSheet.create({
   orderTitle: {
     fontSize: '14@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   orderDescription: {
     fontSize: '11@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     lineHeight: '18@vs',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    marginHorizontal: '16@s',
+    marginTop: '10@vs',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    gap: '8@s',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: '40@vs',
+    gap: '12@vs',
+  },
+  loaderText: {
+    fontSize: '14@ms',
+    color: COLORS.textMedium,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: '60@vs',
+    gap: '12@vs',
+  },
+  emptyText: {
+    fontSize: '16@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  emptySubtext: {
+    fontSize: '14@ms',
+    color: COLORS.textAsh,
+    textAlign: 'center',
   },
 });

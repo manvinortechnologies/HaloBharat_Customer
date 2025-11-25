@@ -1,11 +1,14 @@
 import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/Ionicons';
 import NormalHeader from '../component/NormalHeader';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import COLORS from '../constants/colors';
+import auth from '@react-native-firebase/auth';
+import { clearAuthData } from '../storage/authStorage';
 
 // Define your stack param list
 type RootStackParamList = {
@@ -16,6 +19,7 @@ type RootStackParamList = {
   Addresses: undefined;
   HelpSupport: undefined;
   TermsPolicies: undefined;
+  MainTab: { screenName: string };
 };
 
 const More = () => {
@@ -78,12 +82,38 @@ const More = () => {
   ];
 
   const handleMenuItemPress = (screen: string) => {
-    navigation.navigate(screen as keyof RootStackParamList);
+    if (screen === 'Account') {
+      navigation.navigate('MainTab', { screenName: 'ACCOUNT' });
+    } else {
+      navigation.navigate(screen as never);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await auth().signOut();
+          } catch (error) {
+            console.warn('Failed to sign out of Firebase', error);
+          }
+          await clearAuthData();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'LoginScreen' as never }],
+          });
+        },
+      },
+    ]);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <NormalHeader title="More" />
+    <View style={styles.container}>
+      <NormalHeader title="More" showBackButton={false} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -110,7 +140,7 @@ const More = () => {
                     </Text>
                   </View>
                 ) : (
-                  <Icon name={item.icon} size={22} color="#000" />
+                  <Icon name={item.icon} size={22} color={COLORS.black} />
                 )}
               </View>
 
@@ -121,8 +151,13 @@ const More = () => {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Icon name="log-out-outline" size={20} color={COLORS.white} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -131,7 +166,7 @@ export default More;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   scrollView: {
     flex: 1,
@@ -143,10 +178,10 @@ const styles = ScaledSheet.create({
   greeting: {
     fontSize: '18@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   menuContainer: {
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   menuItem: {
     flexDirection: 'row',
@@ -154,7 +189,7 @@ const styles = ScaledSheet.create({
     paddingVertical: '12@vs',
     paddingHorizontal: '20@s',
     marginBottom: '10@vs',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   lastMenuItem: {
     borderBottomWidth: 0,
@@ -168,12 +203,12 @@ const styles = ScaledSheet.create({
     width: '30@s',
     height: '30@s',
     borderRadius: '15@s',
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileLetter: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '16@ms',
     fontWeight: '700',
   },
@@ -183,12 +218,28 @@ const styles = ScaledSheet.create({
   menuTitle: {
     fontSize: '14@ms',
     fontWeight: '400',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '2@vs',
   },
   menuDescription: {
     fontSize: '10@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     fontWeight: '400',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: '20@s',
+    marginVertical: '20@vs',
+    backgroundColor: COLORS.accentRed,
+    borderRadius: '12@s',
+    paddingVertical: '12@vs',
+    gap: '8@s',
+  },
+  logoutText: {
+    color: COLORS.white,
+    fontSize: '14@ms',
+    fontWeight: '600',
   },
 });

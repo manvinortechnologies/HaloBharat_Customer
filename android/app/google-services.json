@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "862397232947",
+    "project_id": "halo-bharat",
+    "storage_bucket": "halo-bharat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862397232947:android:0494a03ad3cb66c4013046",
+        "android_client_info": {
+          "package_name": "com.halobharat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEH638jZtaTdncuoFw5UeegcisrFgbkrc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862397232947:android:d4d28607ee9d92fd013046",
+        "android_client_info": {
+          "package_name": "com.halobharatseller"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEH638jZtaTdncuoFw5UeegcisrFgbkrc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

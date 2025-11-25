@@ -1,17 +1,64 @@
 import {
-  StyleSheet,
+  ActivityIndicator,
   Text,
   View,
   TextInput,
   TouchableOpacity,
   Image,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScaledSheet } from 'react-native-size-matters';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
+import COLORS from '../constants/colors';
 
 const LoginScreen = ({ navigation }: any) => {
   const [phone, setPhone] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const formattedPhone = useMemo(() => {
+    const trimmed = phone.replace(/\\s+/g, '');
+    if (!trimmed) {
+      return '';
+    }
+    if (trimmed.startsWith('+')) {
+      return trimmed;
+    }
+    return `+91${trimmed}`;
+  }, [phone]);
+
+  const isPhoneValid = useMemo(
+    () => /^(?:\+91)?[1-9][0-9]{9}$/.test(formattedPhone),
+    [formattedPhone],
+  );
+
+  const handleContinue = async () => {
+    if (!formattedPhone || !isPhoneValid) {
+      setError('Enter a valid phone number with country code.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setError('');
+      const confirmation = await auth().signInWithPhoneNumber(formattedPhone);
+      navigation.navigate('OtpScreen', {
+        verificationId: confirmation.verificationId,
+        phoneNumber: formattedPhone,
+      });
+    } catch (err: any) {
+      const message =
+        err?.code === 'auth/invalid-phone-number'
+          ? 'The phone number is invalid.'
+          : err?.code === 'auth/too-many-requests'
+          ? 'Too many attempts. Please try again later.'
+          : 'Unable to send verification code. Please try again.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.logoContainer}>
@@ -30,14 +77,18 @@ const LoginScreen = ({ navigation }: any) => {
       </View>
 
       {/* Phone Input */}
+      {/* Phone Input */}
       <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.phoneInput}
-          placeholder="+91"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-        />
+        <View style={styles.phoneWrapper}>
+          <Text style={styles.prefix}>+91</Text>
+          <TextInput
+            style={styles.phoneInput}
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+            maxLength={10}
+          />
+        </View>
         <Text style={styles.infoText}>
           We will send a confirmation code on your number, to verify it is you
         </Text>
@@ -45,10 +96,18 @@ const LoginScreen = ({ navigation }: any) => {
 
       {/* Continue Button */}
       <TouchableOpacity
-        style={styles.continueButton}
-        onPress={() => navigation.navigate('OtpScreen')}
+        style={[
+          styles.continueButton,
+          (!isPhoneValid || submitting) && styles.disabledButton,
+        ]}
+        onPress={handleContinue}
+        disabled={submitting || !isPhoneValid}
       >
-        <Text style={styles.continueButtonText}>Continue</Text>
+        {submitting ? (
+          <ActivityIndicator color={COLORS.white} />
+        ) : (
+          <Text style={styles.continueButtonText}>Continue</Text>
+        )}
       </TouchableOpacity>
 
       {/* Sign Up */}
@@ -104,7 +163,7 @@ export default LoginScreen;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingHorizontal: '20@s',
     justifyContent: 'space-between',
   },
@@ -122,45 +181,63 @@ const styles = ScaledSheet.create({
   welcomeText: {
     fontSize: '20@ms',
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
   },
   subWelcomeText: {
     fontSize: '20@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: 'bold',
     marginTop: '2@vs',
   },
   instructionText: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
     marginTop: '8@vs',
   },
   inputContainer: {
     marginTop: '10@vs',
   },
-  phoneInput: {
+  phoneWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#656565',
+    borderColor: COLORS.textSmoke,
     paddingHorizontal: '10@s',
-    paddingVertical: '10@vs',
+    paddingVertical: '6@vs',
+  },
+  prefix: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
+    marginRight: '5@s',
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: '14@ms',
+    color: COLORS.black,
+  },
+  errorText: {
+    color: COLORS.accentRed,
+    fontSize: '12@ms',
+    marginTop: '6@vs',
   },
   infoText: {
     fontSize: '12@ms',
-    color: '#999',
+    color: COLORS.gray400,
     marginTop: '6@vs',
   },
   continueButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingVertical: '12@vs',
     borderRadius: '8@ms',
     alignItems: 'center',
     marginTop: '20@vs',
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
   continueButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '14@ms',
     fontWeight: 'bold',
   },
@@ -171,11 +248,11 @@ const styles = ScaledSheet.create({
   },
   signupText: {
     fontSize: '12@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
   },
   signupLink: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: 'bold',
   },
   socialContainer: {
@@ -186,13 +263,13 @@ const styles = ScaledSheet.create({
   },
   line: {
     height: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     flex: 1,
     marginHorizontal: '10@s',
   },
   orText: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
   },
   socialButtons: {
@@ -213,12 +290,12 @@ const styles = ScaledSheet.create({
   },
   footerText: {
     fontSize: '12@ms',
-    color: '#656565',
+    color: COLORS.textSmoke,
     textAlign: 'center',
   },
   linkText: {
     // textDecorationLine: 'underline',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '600',
   },
 });

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
 
 const TermsPolicies = () => {
   // 🔹 Dynamic content array (you can later fetch from API)
@@ -37,6 +38,17 @@ const TermsPolicies = () => {
       title: 'Orders & Payments',
       bullets: [
         'Users are responsible for providing correct delivery information.',
+        'Payment gateways are secure; however, users must ensure proper authorization of payments.',
+        'Orders are confirmed only after successful payment.',
+      ],
+    },
+    {
+      id: 5,
+      title: 'Cancellations & Refunds',
+      bullets: [
+        'Users can cancel orders before dispatch, as per vendor-specific policies.',
+        'Refunds will be processed through the original payment method within the stipulated time.',
+        'Any disputes regarding product quality or delivery must be reported to Help & Support.',
       ],
     },
   ];
@@ -80,7 +92,7 @@ const TermsPolicies = () => {
                     <Icon
                       name="circle"
                       size={8}
-                      color="#000"
+                      color={COLORS.black}
                       style={styles.bulletIcon}
                     />
                     <Text style={styles.bulletText}>{bullet}</Text>
@@ -100,14 +112,14 @@ export default TermsPolicies;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   scrollView: {
     flex: 1,
     paddingHorizontal: '16@s',
     marginVertical: '20@vs',
   },
-  title: { color: '#000', fontWeight: '700', fontSize: '16@s' },
+  title: { color: COLORS.black, fontWeight: '700', fontSize: '16@s' },
   card: {
     marginBottom: '24@vs',
   },
@@ -119,19 +131,19 @@ const styles = ScaledSheet.create({
   },
   introText: {
     fontSize: '12@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     marginVertical: '8@vs',
     fontWeight: '400',
     textAlign: 'left',
   },
   updatedDate: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
   },
   section: {
     marginBottom: '24@vs',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
@@ -141,19 +153,19 @@ const styles = ScaledSheet.create({
   sectionNumber: {
     fontSize: '14@ms',
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
     marginRight: '2@s',
     textAlign: 'center',
   },
   sectionHeader: {
     fontSize: '14@ms',
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
     textAlign: 'left',
   },
   sectionContent: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     lineHeight: '20@vs',
     textAlign: 'left',
   },
@@ -172,7 +184,7 @@ const styles = ScaledSheet.create({
   },
   bulletText: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     lineHeight: '20@vs',
     flex: 1,
     textAlign: 'left',

@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
 
 const ReturnOrder = () => {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
@@ -116,7 +117,7 @@ const ReturnOrder = () => {
               style={styles.closeButton}
               onPress={() => setShowModal(false)}
             >
-              <Icon name="close" size={22} color="#000" />
+              <Icon name="close" size={22} color={COLORS.black} />
             </TouchableOpacity>
 
             {/* Success Content */}
@@ -128,7 +129,7 @@ const ReturnOrder = () => {
                 <Icon
                   name="check-circle"
                   size={22}
-                  color="#28A745"
+                  color={COLORS.success}
                   style={{ marginLeft: 6 }}
                 />
               </View>
@@ -156,14 +157,14 @@ export default ReturnOrder;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   scrollView: {
     flex: 1,
   },
   // Product Section
   productCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderRadius: '10@s',
@@ -184,12 +185,12 @@ const styles = ScaledSheet.create({
   },
   productTitle: {
     fontSize: '14@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '600',
   },
   seller: {
     fontSize: '12@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
     marginTop: '4@vs',
   },
   qtyRow: {
@@ -199,46 +200,46 @@ const styles = ScaledSheet.create({
     marginTop: '6@vs',
   },
   qtyBox: {
-    backgroundColor: '#E0E3E4',
+    backgroundColor: COLORS.gray850,
     width: '40%',
     alignItems: 'center',
     marginTop: '5@s',
   },
   qtyText: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
   },
   deliveryTag: {
-    backgroundColor: '#D66651',
+    backgroundColor: COLORS.accentClay,
     paddingHorizontal: '6@s',
     paddingVertical: '2@vs',
   },
   deliveryText: {
     fontSize: '10@ms',
-    color: '#fff',
+    color: COLORS.white,
   },
   priceText: {
     alignItems: 'flex-end',
     fontSize: '13@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
 
   // Reason Section
   reasonSection: {
     marginBottom: '30@vs',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingHorizontal: '16@s',
   },
   reasonLabel: {
     fontSize: '15@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '8@vs',
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: COLORS.gray700,
     borderRadius: '8@s',
     padding: '10@s',
     marginBottom: '16@vs',
@@ -254,7 +255,7 @@ const styles = ScaledSheet.create({
     width: '20@s',
     height: '20@s',
     borderWidth: 1,
-    borderColor: '#666',
+    borderColor: COLORS.textSubtle,
     borderRadius: '4@s',
     marginRight: '10@s',
     alignItems: 'center',
@@ -263,17 +264,17 @@ const styles = ScaledSheet.create({
   checkedBox: {
     width: '12@s',
     height: '12@s',
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '2@s',
   },
   reasonText: {
     fontSize: '14@ms',
-    color: '#333',
+    color: COLORS.textSemiDark,
   },
 
   // Button
   returnButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '8@s',
     paddingVertical: '14@vs',
     alignItems: 'center',
@@ -281,10 +282,10 @@ const styles = ScaledSheet.create({
     marginHorizontal: '30@s',
   },
   returnButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.gray700,
   },
   returnButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '16@ms',
     fontWeight: '600',
   },
@@ -292,13 +293,13 @@ const styles = ScaledSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: COLORS.overlayMedium,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '85%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '12@s',
     padding: '20@s',
     position: 'relative',
@@ -320,24 +321,24 @@ const styles = ScaledSheet.create({
   modalTitle: {
     fontSize: '16@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   modalSubtitle: {
     fontSize: '10@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     textAlign: 'center',
     marginVertical: '2@vs',
     lineHeight: '18@vs',
   },
   exploreButton: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '8@s',
     paddingVertical: '6@vs',
     paddingHorizontal: '25@s',
     marginTop: '10@vs',
   },
   exploreButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '400',
     fontSize: '14@ms',
   },

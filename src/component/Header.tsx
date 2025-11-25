@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, Text } from 'react-native';
+import { View, Image, TouchableOpacity, Text, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet, ms } from 'react-native-size-matters';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import COLORS from '../constants/colors';
 
 type RootStackParamList = {
   SearchScreen: undefined;
@@ -13,12 +14,20 @@ type RootStackParamList = {
   MyCart: undefined;
 };
 
-const Header = () => {
+const Header = ({
+  value,
+  onChangeText,
+  placeholder,
+}: {
+  value?: string;
+  onChangeText?: (text: string) => void;
+  placeholder?: string;
+}) => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       {/* Top Header */}
       <View style={styles.container}>
         <Image
@@ -36,7 +45,7 @@ const Header = () => {
             <Ionicons
               name="notifications-outline"
               size={ms(20)}
-              color="#000"
+              color={COLORS.black}
               style={styles.icon}
             />
           </TouchableOpacity>
@@ -49,7 +58,7 @@ const Header = () => {
             <Ionicons
               name="heart-outline"
               size={ms(20)}
-              color="#000"
+              color={COLORS.black}
               style={styles.icon}
             />
           </TouchableOpacity>
@@ -62,7 +71,7 @@ const Header = () => {
             <Ionicons
               name="bag-outline"
               size={ms(20)}
-              color="#000"
+              color={COLORS.black}
               style={styles.icon}
             />
           </TouchableOpacity>
@@ -70,20 +79,40 @@ const Header = () => {
       </View>
 
       {/* Search Bar */}
-      <TouchableOpacity
-        style={styles.searchContainer}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('SearchScreen')}
-      >
-        <Ionicons
-          name="search-outline"
-          size={ms(16)}
-          color="#303030"
-          style={styles.searchIcon}
-        />
-        <Text style={styles.placeholderText}>Search for Products</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      {onChangeText ? (
+        <View style={styles.searchContainer}>
+          <Ionicons
+            name="search-outline"
+            size={ms(16)}
+            color={COLORS.textDark}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={placeholder || 'Search for Products'}
+            placeholderTextColor={COLORS.textDark}
+            value={value}
+            onChangeText={onChangeText}
+          />
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.searchContainer}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SearchScreen')}
+        >
+          <Ionicons
+            name="search-outline"
+            size={ms(16)}
+            color={COLORS.textDark}
+            style={styles.searchIcon}
+          />
+          <Text style={styles.placeholderText}>
+            {placeholder || 'Search for Products'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
@@ -91,7 +120,7 @@ export default Header;
 
 const styles = ScaledSheet.create({
   safeArea: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   container: {
     flexDirection: 'row',
@@ -115,7 +144,7 @@ const styles = ScaledSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F3F3',
+    backgroundColor: COLORS.gray1000,
     borderRadius: '10@s',
     marginHorizontal: '20@s',
     marginTop: '5@vs',
@@ -123,14 +152,20 @@ const styles = ScaledSheet.create({
     paddingHorizontal: '10@s',
     height: '40@vs',
     borderWidth: 1,
-    borderColor: '#D9D9D9',
+    borderColor: COLORS.gray750,
   },
   searchIcon: {
     marginRight: '8@s',
   },
+  searchInput: {
+    flex: 1,
+    fontSize: '13@ms',
+    color: COLORS.textDark,
+    paddingVertical: 0,
+  },
   placeholderText: {
     flex: 1,
     fontSize: '13@ms',
-    color: '#303030',
+    color: COLORS.textDark,
   },
 });

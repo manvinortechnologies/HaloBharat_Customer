@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,92 +11,171 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
+import COLORS from '../constants/colors';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 
 interface OrderedProduct {
   id: string;
+  sourceId: string;
+  productId?: string | null;
   name: string;
-  seller: string;
+  seller?: string | null;
   quantity: number;
-  deliveryDate: string;
-  image: any;
+  deliveryDate?: string | null;
+  imageUrl?: string | null;
+  lineTotal?: string | number | null;
 }
 
-interface DeliveryAddress {
-  name: string;
-  addressLine1: string;
-  addressLine2: string;
-  mobile: string;
-}
+type PaymentRouteParams = RouteProp<
+  {
+    PaymentConfirmation: {
+      order?: any;
+      deliveryAddress?: {
+        name?: string;
+        addressLine1?: string;
+        addressLine2?: string;
+        phone?: string;
+      };
+      paymentMethod?: string;
+    };
+  },
+  'PaymentConfirmation'
+>;
 
-interface RecommendedProduct {
-  id: string;
-  name: string;
-  description: string;
-  image: any;
-  discount: string;
-  deliveryDays: string;
-}
+const PaymentConfirmation = () => {
+  const navigation = useNavigation<any>();
+  const route = useRoute<PaymentRouteParams>();
+  const fallbackProductImage = useMemo(
+    () => require('../assets/product1.png'),
+    [],
+  );
 
-const PaymentConfirmation = ({ navigation }: any) => {
-  const [modalVisible, setModalVisible] = useState(false);
+  const order = route.params?.order ?? null;
+  const rawItems: any[] = Array.isArray(order?.items) ? order.items : [];
+  const orderedProducts: OrderedProduct[] = useMemo(() => {
+    return rawItems.map((item, index) => {
+      const sourceId = String(
+        item?.id ?? item?.order_item_id ?? item?.product_id ?? `item-${index}`,
+      );
+      const productId = item?.product_id ? String(item.product_id) : null;
+      const quantity = Number(item?.quantity ?? 1);
+      const deliveryDate =
+        item?.delivery_datetime ?? order?.delivery_datetime ?? null;
+      const imageUrl = item?.product_image ?? null;
+      const lineTotal = item?.line_total ?? item?.unit_price ?? null;
+      return {
+        id: sourceId,
+        sourceId,
+        productId,
+        name: item?.product_name ?? item?.name ?? 'Product',
+        seller: item?.vendor_name ? `Seller - ${item.vendor_name}` : null,
+        quantity,
+        deliveryDate,
+        imageUrl,
+        lineTotal,
+      };
+    });
+  }, [rawItems, order]);
 
-  const handleAssignPress = () => {
-    setModalVisible(true);
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedOrderItem, setSelectedOrderItem] =
+    useState<OrderedProduct | null>(null);
+
+  const handleAssignPress = (item: OrderedProduct) => {
+    setSelectedOrderItem(item);
+    setAssignModalVisible(true);
   };
 
-  const closeModal = () => {
-    setModalVisible(false);
-  };
-  const orderDate = '20 Sept, 2025 / 12:45 Pm';
-  const totalAmount = 4285;
-  const paymentMethod = 'Cash on delivery';
-
-  const deliveryAddress: DeliveryAddress = {
-    name: 'Rahul Sharma',
-    addressLine1: '#1235, Street 5, Mumbai, Maharashtra, 16089',
-    addressLine2: '',
-    mobile: '9876543210',
+  const closeAssignModal = () => {
+    setAssignModalVisible(false);
+    setSelectedOrderItem(null);
   };
 
-  const orderedProducts: OrderedProduct[] = [
-    {
-      id: '1',
-      name: 'Cinder Blocks / Concrete Hollow Blocks',
-      seller: 'Seller - Cemex',
-      quantity: 5,
-      deliveryDate: 'Delivery by 27 Sept',
-      image: require('../assets/product1.png'),
-    },
-  ];
+  const navigateToAssignProject = (action: 'new' | 'existing') => {
+    if (!order?.order_id || !selectedOrderItem) {
+      closeAssignModal();
+      return;
+    }
+    closeAssignModal();
+    navigation.replace('AssignProject', {
+      orderId: order.order_id,
+      items: rawItems,
+      initialItemId: selectedOrderItem.sourceId,
+      initialAction: action,
+    });
+  };
 
-  const recommendedProducts: RecommendedProduct[] = [
-    {
-      id: '1',
-      name: 'Cinder Blocks / Concrete Hollow Blocks',
-      description: 'Essential safety and tool kit for construction',
-      image: require('../assets/product2.png'),
-      discount: '22% Off',
-      deliveryDays: 'Delivery in 3 days',
-    },
-    {
-      id: '2',
-      name: 'TMT Steel Bars (Rebar / Sariya)',
-      description: 'Essential safety and tool kit for construction',
-      image: require('../assets/product3.png'),
-      discount: '22% Off',
-      deliveryDays: 'Delivery in 3 days',
-    },
-  ];
+  const paymentMethod =
+    route.params?.paymentMethod ?? order?.payment_method ?? 'Cash on Delivery';
+  const orderDateRaw =
+    order?.delivery_datetime ?? order?.created_at ?? new Date().toISOString();
+  const orderDate = new Date(orderDateRaw).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  const deliveryName =
+    route.params?.deliveryAddress?.name ??
+    (typeof order?.delivery_to === 'string'
+      ? order.delivery_to.split(',')[0]
+      : 'Customer');
+  const deliveryAddressLine =
+    route.params?.deliveryAddress?.addressLine1 ??
+    order?.delivery_to ??
+    'Delivery details unavailable';
+  const contactPhone =
+    route.params?.deliveryAddress?.phone ??
+    order?.contact_phone ??
+    'Not provided';
+  const totalAmount =
+    typeof order?.total_amount === 'number'
+      ? order.total_amount.toFixed(2)
+      : order?.total_amount ?? '0.00';
+
+  const recommendedProducts = orderedProducts.slice(0, 3);
+
+  const formatCurrency = (value?: string | number | null) => {
+    if (value == null) {
+      return '--';
+    }
+    const num =
+      typeof value === 'number'
+        ? value
+        : Number.isNaN(Number(value))
+        ? null
+        : Number(value);
+    if (num == null || Number.isNaN(num)) {
+      return `${value}`;
+    }
+    return `Rs ${num.toFixed(2)}`;
+  };
 
   const handleContinueShopping = () => {
-    // Navigate to home or products page
-    console.log('Continue shopping');
+    navigation.navigate('MainTab');
   };
 
-  const handleProductPress = (productId: string) => {
-    // Navigate to product details
-    console.log('Product pressed:', productId);
+  const handleProductPress = (product: OrderedProduct) => {
+    if (product.productId) {
+      navigation.navigate('ProductDetail', { productId: product.productId });
+    }
   };
+
+  const formatDeliveryEta = useCallback((isoDate?: string | null) => {
+    if (!isoDate) {
+      return 'Delivery in 3 days';
+    }
+    const target = new Date(isoDate);
+    if (Number.isNaN(target.getTime())) {
+      return 'Delivery in 3 days';
+    }
+    const now = new Date();
+    const diffMs = target.getTime() - now.getTime();
+    const days = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    return `Delivery in ${days} day${days === 1 ? '' : 's'}`;
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -131,7 +210,7 @@ const PaymentConfirmation = ({ navigation }: any) => {
         {/* Success Message */}
         <View style={styles.successContainer}>
           <View style={styles.checkmarkCircle}>
-            <Icon name="check" size={30} color="#4CAF50" />
+            <Icon name="check" size={30} color={COLORS.successBright} />
           </View>
           <Text style={styles.successTitle}>
             GREAT NEWS! YOUR ORDER IS CONFIRMED. GET READY TO RECEIVE YOUR ITEMS
@@ -143,67 +222,60 @@ const PaymentConfirmation = ({ navigation }: any) => {
         {/* Ordered Products */}
         <View style={styles.section}>
           {orderedProducts.map(product => (
-            <View key={product.id} style={styles.productCard}>
-              <Image
-                source={product.image}
-                style={styles.productImage}
-                resizeMode="cover"
-              />
-              <View style={styles.productInfo}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#1C3452',
-                      width: 50,
-                      height: 20,
-                      borderRadius: 2,
-                    }}
-                    onPress={handleAssignPress}
-                  >
+            <View key={product.id}>
+              <View style={styles.productCard}>
+                <Image
+                  source={
+                    product.imageUrl
+                      ? { uri: product.imageUrl }
+                      : fallbackProductImage
+                  }
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.productInfo}>
+                  <View style={styles.productHeader}>
                     <Text
-                      style={{
-                        color: '#fff',
-                        fontSize: 12,
-                        textAlign: 'center',
-                      }}
+                      style={styles.productName}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
                     >
-                      Assign
+                      {product.name}
                     </Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.productSeller}>{product.seller}</Text>
-                <View style={styles.productMeta}>
-                  <Text style={styles.productQuantity}>
-                    Qty: {product.quantity} Packs
-                  </Text>
-                  <Icon name="keyboard-arrow-down" size={20} color="#000" />
-                </View>
-                <View style={styles.deliveryBadge}>
-                  <Text style={styles.deliveryBadgeText}>
-                    {product.deliveryDate}
-                  </Text>
+                    <TouchableOpacity
+                      style={styles.assignButton}
+                      onPress={() => handleAssignPress(product)}
+                    >
+                      <Text style={styles.assignButtonText}>Assign</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {product.seller ? (
+                    <Text style={styles.productSeller}>{product.seller}</Text>
+                  ) : null}
+                  <View style={styles.productMeta}>
+                    <Text style={styles.productQuantity}>
+                      Qty: {product.quantity}
+                    </Text>
+                  </View>
+                  <View style={styles.deliveryBadge}>
+                    <Text style={styles.deliveryBadgeText}>
+                      {formatDeliveryEta(product.deliveryDate)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <Text style={styles.productPrice}>Rs {totalAmount}</Text>
+              <Text style={styles.productPrice}>
+                {formatCurrency(product.lineTotal)}
+              </Text>
             </View>
           ))}
         </View>
 
         {/* Delivery Address */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Delivery To - {deliveryAddress.name}
-          </Text>
-          <Text style={styles.addressText}>{deliveryAddress.addressLine1}</Text>
-          <Text style={styles.addressText}>
-            Mobile - {deliveryAddress.mobile}
-          </Text>
+          <Text style={styles.sectionTitle}>Delivery To - {deliveryName}</Text>
+          <Text style={styles.addressText}>{deliveryAddressLine}</Text>
+          <Text style={styles.addressText}>Mobile - {contactPhone}</Text>
           <Text style={styles.paymentMethod}>{paymentMethod}</Text>
         </View>
 
@@ -219,36 +291,33 @@ const PaymentConfirmation = ({ navigation }: any) => {
               <TouchableOpacity
                 key={product.id}
                 style={styles.recommendedCard}
-                onPress={() => handleProductPress(product.id)}
+                onPress={() => handleProductPress(product)}
               >
-                {/* Discount Badge */}
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>{product.discount}</Text>
-                </View>
+                {product.lineTotal ? (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>
+                      {formatCurrency(product.lineTotal)}
+                    </Text>
+                  </View>
+                ) : null}
 
-                {/* Product Image */}
                 <Image
-                  source={product.image}
+                  source={
+                    product.imageUrl
+                      ? { uri: product.imageUrl }
+                      : fallbackProductImage
+                  }
                   style={styles.recommendedImage}
                   resizeMode="cover"
                 />
 
-                {/* Favorite Button */}
-                <TouchableOpacity style={styles.favoriteButton}>
-                  <Icon name="favorite-border" size={18} color="#666" />
-                </TouchableOpacity>
-
-                {/* Product Info */}
                 <View style={styles.recommendedInfo}>
                   <Text style={styles.recommendedName} numberOfLines={2}>
                     {product.name}
                   </Text>
-                  <Text style={styles.recommendedDescription} numberOfLines={1}>
-                    {product.description}
-                  </Text>
                   <View style={styles.recommendedDeliveryBadge}>
                     <Text style={styles.recommendedDeliveryText}>
-                      {product.deliveryDays}
+                      {formatDeliveryEta(product.deliveryDate)}
                     </Text>
                   </View>
                 </View>
@@ -261,35 +330,36 @@ const PaymentConfirmation = ({ navigation }: any) => {
       {/* Modal for Assign Project */}
       <Modal
         transparent
-        visible={modalVisible}
+        visible={assignModalVisible}
         animationType="fade"
-        onRequestClose={closeModal}
+        onRequestClose={closeAssignModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            {/* Close Button */}
-            <TouchableOpacity style={styles.closeIcon} onPress={closeModal}>
-              <Icon name="close" size={22} color="#000" />
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={closeAssignModal}
+            >
+              <Icon name="close" size={22} color={COLORS.black} />
             </TouchableOpacity>
-
-            {/* Title and Subtitle */}
             <Text style={styles.modalTitle}>Assign Project</Text>
             <Text style={styles.modalSubtitle}>
-              Choose an existing project or create a new one
+              {selectedOrderItem
+                ? `Assign "${selectedOrderItem.name}" to a project`
+                : 'Choose an existing project or create a new one'}
             </Text>
-
-            {/* Buttons */}
             <View style={{ flexDirection: 'row', gap: 20 }}>
               <TouchableOpacity
                 style={styles.modalButtonPrimary}
-                onPress={() => navigation.navigate('AssignProject')}
+                onPress={() => navigateToAssignProject('new')}
+                disabled={!selectedOrderItem}
               >
                 <Text style={styles.modalButtonText}>Add New Project</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.modalButtonSecondary}
-                onPress={() => navigation.navigate('AssignProject')}
+                onPress={() => navigateToAssignProject('existing')}
+                disabled={!selectedOrderItem}
               >
                 <Text style={styles.modalButtonSecondaryText}>
                   Existing Project
@@ -308,7 +378,7 @@ export default PaymentConfirmation;
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -323,7 +393,7 @@ const styles = ScaledSheet.create({
   activeLine: {
     width: '40@s',
     height: '4@vs',
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     borderRadius: '2@s',
     marginRight: '6@s',
   },
@@ -331,7 +401,7 @@ const styles = ScaledSheet.create({
   inactiveLine: {
     width: '30@s',
     height: '3@vs',
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.gray700,
     borderRadius: '2@s',
     marginRight: '6@s',
   },
@@ -339,13 +409,13 @@ const styles = ScaledSheet.create({
   activeStep: {
     fontSize: '13@ms',
     fontWeight: '500',
-    color: '#000',
+    color: COLORS.black,
     marginRight: '6@s',
   },
 
   inactiveStep: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
     marginRight: '6@s',
   },
@@ -355,7 +425,7 @@ const styles = ScaledSheet.create({
   },
 
   successContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: '24@s',
     paddingVertical: '10@s',
     alignItems: 'center',
@@ -365,7 +435,7 @@ const styles = ScaledSheet.create({
     width: '40@s',
     height: '40@s',
     borderRadius: '20@s',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: COLORS.successSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: '16@vs',
@@ -373,17 +443,17 @@ const styles = ScaledSheet.create({
   successTitle: {
     fontSize: '12@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     textAlign: 'center',
     marginBottom: '4@vs',
     lineHeight: '18@vs',
   },
   orderDate: {
     fontSize: '12@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: '16@s',
     marginVertical: '10@vs',
   },
@@ -394,82 +464,101 @@ const styles = ScaledSheet.create({
     width: '80@s',
     height: '100@s',
     borderRadius: '8@s',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.gray1025,
   },
   productInfo: {
     flex: 1,
     marginLeft: '12@s',
+    alignItems: 'flex-start',
+  },
+  productHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4@vs',
   },
   productName: {
     fontSize: '14@ms',
+    width: '75%',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '4@vs',
+  },
+  assignButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: '4@s',
+    paddingHorizontal: '10@s',
+    paddingVertical: '4@vs',
+  },
+  assignButtonText: {
+    color: COLORS.white,
+    fontSize: '11@ms',
+    fontWeight: '600',
   },
   productSeller: {
     fontSize: '10@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
     marginBottom: '6@vs',
   },
   productMeta: {
-    width: '50%',
-    flexDirection: 'row',
-    alignItems: 'center',
+    // width: '50%',
+    // flexDirection: 'row',
+    // alignItems: 'center',
     marginBottom: '8@vs',
-    backgroundColor: '#E0E3E4',
+    backgroundColor: COLORS.gray850,
     paddingHorizontal: '2@s',
   },
   productQuantity: {
     fontSize: '12@ms',
-    color: '#000',
+    color: COLORS.black,
     textAlign: 'center',
   },
   deliveryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#D66651',
+    // alignSelf: 'flex-start',
+    backgroundColor: COLORS.accentClay,
     paddingHorizontal: '8@s',
     paddingVertical: '4@vs',
     borderRadius: '4@s',
   },
   deliveryBadgeText: {
     fontSize: '10@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '600',
   },
   productPrice: {
     fontSize: '15@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     alignSelf: 'flex-end',
   },
   sectionTitle: {
     fontSize: '14@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '8@vs',
   },
   addressText: {
     fontSize: '13@ms',
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
     marginBottom: '4@vs',
     lineHeight: '18@vs',
   },
   paymentMethod: {
     fontSize: '13@ms',
-    color: '#D66651',
+    color: COLORS.accentClay,
     marginTop: '8@vs',
     fontWeight: '500',
   },
   continueSection: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     paddingVertical: '16@vs',
     marginBottom: '20@vs',
   },
   continueSectionTitle: {
     fontSize: '14@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     paddingHorizontal: '16@s',
     marginBottom: '16@vs',
   },
@@ -478,13 +567,13 @@ const styles = ScaledSheet.create({
   },
   recommendedCard: {
     width: '160@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '12@s',
     marginRight: '12@s',
     marginBottom: '10@vs',
     overflow: 'hidden',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -495,31 +584,31 @@ const styles = ScaledSheet.create({
   discountBadge: {
     position: 'absolute',
     top: '8@vs',
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: '8@s',
     paddingVertical: '4@vs',
     borderRadius: '4@s',
     zIndex: 2,
   },
   discountText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '11@ms',
     fontWeight: '600',
   },
   recommendedImage: {
     width: '100%',
     height: '140@vs',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.gray1025,
   },
   favoriteButton: {
     position: 'absolute',
     top: '100@vs',
     right: '8@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '20@s',
     padding: '6@s',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -534,36 +623,36 @@ const styles = ScaledSheet.create({
   recommendedName: {
     fontSize: '13@ms',
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: '4@vs',
     lineHeight: '16@vs',
   },
   recommendedDescription: {
     fontSize: '11@ms',
-    color: '#666',
+    color: COLORS.textSubtle,
     marginBottom: '8@vs',
   },
   recommendedDeliveryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#D66651',
+    backgroundColor: COLORS.accentClay,
     paddingHorizontal: '8@s',
     paddingVertical: '4@vs',
     borderRadius: '4@s',
   },
   recommendedDeliveryText: {
     fontSize: '10@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: COLORS.overlayStrong,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: '20@s',
     padding: '20@s',
     alignItems: 'center',
@@ -578,39 +667,39 @@ const styles = ScaledSheet.create({
   modalTitle: {
     fontSize: '16@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginTop: '10@vs',
   },
   modalSubtitle: {
     fontSize: '11@ms',
-    color: '#696969',
+    color: COLORS.textAsh,
     fontWeight: '500',
     textAlign: 'center',
     marginTop: '4@vs',
     marginBottom: '20@vs',
   },
   modalButtonPrimary: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '6@s',
     width: '45%',
     paddingVertical: '8@vs',
     marginBottom: '10@vs',
   },
   modalButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     textAlign: 'center',
     fontSize: '13@ms',
     fontWeight: '600',
   },
   modalButtonSecondary: {
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     borderRadius: '6@s',
     width: '45%',
     paddingVertical: '8@vs',
     marginBottom: '10@vs',
   },
   modalButtonSecondaryText: {
-    color: '#fff',
+    color: COLORS.white,
     textAlign: 'center',
     fontSize: '13@ms',
     fontWeight: '600',

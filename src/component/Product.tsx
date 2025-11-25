@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ScaledSheet } from 'react-native-size-matters';
+import COLORS from '../constants/colors';
 
 interface ProductCardProps {
   item: {
@@ -55,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
 
         <TouchableOpacity style={styles.heartIcon}>
-          <Icon name="heart-outline" size={16} color="#fff" />
+          <Icon name="heart-outline" size={16} color={COLORS.white} />
         </TouchableOpacity>
 
         {!isCompact && (
@@ -98,7 +99,7 @@ const styles = ScaledSheet.create({
   card: {
     width: 150,
     borderRadius: '12@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     marginRight: '15@s',
     overflow: 'hidden',
     elevation: 3,
@@ -130,13 +131,13 @@ const styles = ScaledSheet.create({
     position: 'absolute',
     top: 6,
     left: 6,
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   discountText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: '10@ms',
     fontWeight: '600',
   },
@@ -144,7 +145,7 @@ const styles = ScaledSheet.create({
     position: 'absolute',
     bottom: 6,
     right: 6,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: COLORS.overlayMedium,
     padding: '4@s',
     borderRadius: 50,
   },
@@ -157,24 +158,24 @@ const styles = ScaledSheet.create({
   },
   originalPrice: {
     fontSize: '11@ms',
-    color: '#fff',
+    color: COLORS.white,
     textDecorationLine: 'line-through',
     marginRight: 5,
   },
   discountedPrice: {
     fontSize: '12@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '700',
   },
   detailsContainer: {
     paddingHorizontal: '8@s',
     paddingVertical: '6@vs',
-    backgroundColor: '#F0F1F3',
+    backgroundColor: COLORS.gray950,
     flex: 1,
     justifyContent: 'center',
   },
   name: {
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '500',
   },
   nameDefault: {
@@ -185,7 +186,7 @@ const styles = ScaledSheet.create({
     flex: 1,
   },
   compactPrice: {
-    color: '#1E2A4A',
+    color: COLORS.primaryDeep,
     fontSize: '12@ms',
     fontWeight: '600',
     marginTop: 2,

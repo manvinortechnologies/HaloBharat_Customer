@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,41 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../component/Header';
+import COLORS from '../constants/colors';
+import { getBestsellers } from '../api/products';
+import { getCategories } from '../api/categories';
+
+interface CategoryItem {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
 
 const SearchScreen = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [topPicks, setTopPicks] = useState<ProductCard[]>([]);
+  const [topPicksLoading, setTopPicksLoading] = useState(false);
+  const [topPicksError, setTopPicksError] = useState<string | null>(null);
+  const [topPicksFetchNonce, setTopPicksFetchNonce] = useState(0);
+  const fallbackCategoryImage = useMemo(
+    () => require('../assets/paints.png'),
+    [],
+  );
+  const fallbackProductImage = useMemo(
+    () => require('../assets/product1.png'),
+    [],
+  );
 
   const recentSearches = [
     'Bricks',
@@ -25,14 +51,46 @@ const SearchScreen = ({ navigation }: any) => {
     'Tiles',
   ];
 
-  const categories = [
-    { id: '1', name: 'Paints', image: require('../assets/paints.png') },
-    { id: '2', name: 'Stones', image: require('../assets/stones.png') },
-    { id: '3', name: 'Steel', image: require('../assets/steel.png') },
-    { id: '4', name: 'Timber', image: require('../assets/timber.png') },
-    { id: '5', name: 'Tiles', image: require('../assets/tiles.png') },
-    // { id: '6', name: 'Bricks', image: require('../assets/bricks.png') },
-  ];
+  const normalizeCategory = useCallback(
+    (item: any, index: number): CategoryItem => {
+      return {
+        id: String(item?.id ?? item?.category_id ?? `category-${index}`),
+        name: item?.name ?? item?.title ?? 'Category',
+        imageUrl:
+          item?.image ??
+          item?.icon ??
+          item?.thumbnail ??
+          item?.featured_image ??
+          null,
+      };
+    },
+    [],
+  );
+
+  const fetchCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    try {
+      const payload = await getCategories();
+      const listSource = Array.isArray(payload?.results)
+        ? payload.results
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+        ? payload
+        : [];
+      setCategories(listSource.map(normalizeCategory));
+    } catch (error: any) {
+      setCategories([]);
+      setCategoriesError(error?.message || 'Unable to load categories.');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [normalizeCategory]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const brands = [
     {
@@ -48,39 +106,136 @@ const SearchScreen = ({ navigation }: any) => {
     },
   ];
 
-  const topPicks = [
-    {
-      id: '1',
-      name: 'Bricks',
-      price: '₹1,011',
-      discount: '10% OFF',
-      image: require('../assets/product3.png'),
-    },
-    {
-      id: '2',
-      name: 'Pipes',
-      price: '₹950',
-      discount: '10% OFF',
-      image: require('../assets/review2.png'),
-    },
-    {
-      id: '3',
-      name: 'Hardware',
-      price: '₹1,011 ₹950',
-      discount: '10% OFF',
-      image: require('../assets/product4.png'),
-    },
-  ];
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const normalizeTopPick = useCallback((item: any, index: number) => {
+    const discountedPrice = Number(item?.price ?? item?.price_including_gst);
+    const originalPrice = Number(
+      item?.price_including_gst ?? item?.original_price,
+    );
+    const discountPct =
+      typeof item?.discount_percentage === 'number'
+        ? item.discount_percentage
+        : Number(item?.discount_percentage);
+    const imageFromArray = Array.isArray(item?.images)
+      ? item.images.find((img: any) => img?.is_feature)?.url ||
+        item.images[0]?.url
+      : undefined;
+
+    const formatDiscountLabel = () => {
+      if (typeof discountPct === 'number' && !Number.isNaN(discountPct)) {
+        return `${Math.round(discountPct)}% OFF`;
+      }
+      return item?.discount_label ?? null;
+    };
+
+    return {
+      id: String(
+        item?.id ?? item?.product_id ?? item?.uuid ?? `top-pick-${index}`,
+      ),
+      name: item?.name ?? item?.title ?? 'Product',
+      originalPrice:
+        !Number.isNaN(originalPrice) && originalPrice ? originalPrice : null,
+      discountedPrice: !Number.isNaN(discountedPrice)
+        ? discountedPrice
+        : originalPrice ?? null,
+      discountLabel: formatDiscountLabel(),
+      imageUrl:
+        imageFromArray ??
+        item?.image ??
+        item?.thumbnail ??
+        item?.featured_image ??
+        item?.primary_image ??
+        null,
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const fetchTopPicks = async () => {
+      setTopPicksLoading(true);
+      setTopPicksError(null);
+      try {
+        const payload = await getBestsellers(
+          debouncedQuery ? { search: debouncedQuery } : undefined,
+        );
+        const listSource = Array.isArray(payload?.results)
+          ? payload.results
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+          ? payload
+          : [];
+        if (!isActive) {
+          return;
+        }
+        setTopPicks(listSource.map(normalizeTopPick));
+      } catch (error: any) {
+        if (!isActive) {
+          return;
+        }
+        setTopPicks([]);
+        setTopPicksError(error?.message || 'Unable to load top picks.');
+      } finally {
+        if (isActive) {
+          setTopPicksLoading(false);
+        }
+      }
+    };
+
+    fetchTopPicks();
+    return () => {
+      isActive = false;
+    };
+  }, [debouncedQuery, normalizeTopPick, topPicksFetchNonce]);
+
+  const formatPrice = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) {
+      return '';
+    }
+    return `₹${value.toLocaleString('en-IN')}`;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <Header />
+      <Header
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search products"
+      />
 
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
+        {/* <View style={styles.searchBar}>
+          <Icon
+            name="search-outline"
+            size={18}
+            color={COLORS.gray500}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products, vendors, categories"
+            placeholderTextColor={COLORS.gray500}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearch}
+            >
+              <Icon name="close-circle" size={18} color={COLORS.gray500} />
+            </TouchableOpacity>
+          )}
+        </View> */}
+
         {/* Recent Searches Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -104,31 +259,71 @@ const SearchScreen = ({ navigation }: any) => {
               onPress={() => navigation.navigate('Categories')}
             >
               <Text style={styles.seeAllText}>See all</Text>
-              <Icon name="chevron-forward" size={16} color="#999" />
+              <Icon name="chevron-forward" size={16} color={COLORS.gray400} />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={categories}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.categoriesContainer}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.categoryItem}
-                onPress={() => navigation.navigate('ProductCategoryList')}
-              >
-                <View style={styles.categoryImageWrapper}>
-                  <Image
-                    source={item.image}
-                    style={styles.categoryImage}
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text style={styles.categoryText}>{item.name}</Text>
-              </TouchableOpacity>
-            )}
-          />
+
+          {categoriesError ? (
+            <TouchableOpacity
+              style={styles.errorBanner}
+              onPress={fetchCategories}
+            >
+              <Icon name="warning-outline" size={18} color={COLORS.accentRed} />
+              <Text style={styles.errorText}>{categoriesError}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {categoriesLoading && categories.length === 0 ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loaderText}>Loading categories...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={categories}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.categoriesContainer}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.categoryItem}
+                  onPress={() => navigation.navigate('ProductCategoryList')}
+                >
+                  <View style={styles.categoryImageWrapper}>
+                    <Image
+                      source={
+                        item.imageUrl
+                          ? { uri: item.imageUrl }
+                          : fallbackCategoryImage
+                      }
+                      style={styles.categoryImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <Text style={styles.categoryText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                !categoriesLoading ? (
+                  <View style={styles.emptyState}>
+                    <Icon
+                      name="grid-outline"
+                      size={32}
+                      color={COLORS.gray500}
+                    />
+                    <Text style={styles.emptyTitle}>
+                      No categories available
+                    </Text>
+                    <Text style={styles.emptySubtitle}>
+                      Check back soon for more categories.
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+          )}
         </View>
 
         {/* Most Searched Brands Section */}
@@ -137,7 +332,7 @@ const SearchScreen = ({ navigation }: any) => {
             <Text style={styles.sectionTitle}>MOST SEARCHED BRANDS</Text>
             <TouchableOpacity style={styles.seeAllButton}>
               <Text style={styles.seeAllText}>See all</Text>
-              <Icon name="chevron-forward" size={16} color="#999" />
+              <Icon name="chevron-forward" size={16} color={COLORS.gray400} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -171,45 +366,94 @@ const SearchScreen = ({ navigation }: any) => {
               onPress={() => navigation.navigate('ProductList')}
             >
               <Text style={styles.seeAllText}>See all</Text>
-              <Icon name="chevron-forward" size={16} color="#999" />
+              <Icon name="chevron-forward" size={16} color={COLORS.gray400} />
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.topPicksContainer}
-          >
-            {topPicks.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.topPickCard}
-                onPress={() => navigation.navigate('ProductDetail')}
-              >
-                {/* Discount Badge */}
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>{item.discount}</Text>
-                </View>
+          {topPicksError ? (
+            <TouchableOpacity
+              style={styles.errorBanner}
+              onPress={() => setTopPicksFetchNonce(prev => prev + 1)}
+            >
+              <Icon name="warning-outline" size={18} color={COLORS.accentRed} />
+              <Text style={styles.errorText}>{topPicksError}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </TouchableOpacity>
+          ) : null}
+          {topPicksLoading && topPicks.length === 0 ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loaderText}>Loading top picks...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={topPicks}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.topPicksContainer}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.topPickCard}
+                  onPress={() => navigation.navigate('ProductDetail')}
+                >
+                  {item.discountLabel ? (
+                    <View style={styles.discountBadge}>
+                      <Text style={styles.discountText}>
+                        {item.discountLabel}
+                      </Text>
+                    </View>
+                  ) : null}
 
-                {/* Product Image */}
-                <Image
-                  source={item.image}
-                  style={styles.topPickImage}
-                  resizeMode="cover"
-                />
+                  <Image
+                    source={
+                      item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : fallbackProductImage
+                    }
+                    style={styles.topPickImage}
+                    resizeMode="cover"
+                  />
 
-                {/* Favorite Button */}
-                <TouchableOpacity style={styles.favoriteButton}>
-                  <Icon name="heart-outline" size={20} color="#fff" />
+                  <TouchableOpacity style={styles.favoriteButton}>
+                    <Icon name="heart-outline" size={20} color={COLORS.white} />
+                  </TouchableOpacity>
+
+                  <View style={styles.topPickInfo}>
+                    <Text style={styles.topPickName}>{item.name}</Text>
+                    <View style={styles.priceStack}>
+                      {item.originalPrice &&
+                        item.discountedPrice &&
+                        item.originalPrice > item.discountedPrice && (
+                          <Text style={styles.originalPrice}>
+                            {formatPrice(item.originalPrice)}
+                          </Text>
+                        )}
+                      <Text style={styles.topPickPrice}>
+                        {formatPrice(item.discountedPrice) ||
+                          formatPrice(item.originalPrice) ||
+                          'Price unavailable'}
+                      </Text>
+                    </View>
+                  </View>
                 </TouchableOpacity>
-
-                {/* Product Info */}
-                <View style={styles.topPickInfo}>
-                  <Text style={styles.topPickName}>{item.name}</Text>
-                  <Text style={styles.topPickPrice}>{item.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+              )}
+              ListEmptyComponent={
+                !topPicksLoading ? (
+                  <View style={styles.emptyState}>
+                    <Icon
+                      name="cube-outline"
+                      size={32}
+                      color={COLORS.gray500}
+                    />
+                    <Text style={styles.emptyTitle}>No top picks found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try a different search query.
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -218,19 +462,54 @@ const SearchScreen = ({ navigation }: any) => {
 
 export default SearchScreen;
 
+interface ProductCard {
+  id: string;
+  name: string;
+  originalPrice: number | null;
+  discountedPrice: number | null;
+  discountLabel: string | null;
+  imageUrl: string | null;
+}
+
 const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F7F8',
+    backgroundColor: COLORS.gray975,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     marginTop: '15@vs',
     paddingHorizontal: '16@s',
     paddingVertical: '16@vs',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    marginTop: '12@vs',
+    marginHorizontal: '16@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '10@vs',
+    borderRadius: '12@s',
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  searchIcon: {
+    marginRight: '8@s',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: '13@ms',
+    color: COLORS.black,
+  },
+  clearSearch: {
+    marginLeft: '8@s',
   },
   lastSection: {
     marginBottom: '20@vs',
@@ -244,7 +523,7 @@ const styles = ScaledSheet.create({
   sectionTitle: {
     fontSize: '13@ms',
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     letterSpacing: 0.5,
   },
   seeAllButton: {
@@ -254,7 +533,7 @@ const styles = ScaledSheet.create({
   },
   seeAllText: {
     fontSize: '12@ms',
-    color: '#999',
+    color: COLORS.gray400,
     fontWeight: '400',
   },
   tagsContainer: {
@@ -264,15 +543,15 @@ const styles = ScaledSheet.create({
   },
   tag: {
     borderWidth: 1,
-    borderColor: '#999',
+    borderColor: COLORS.gray400,
     paddingHorizontal: '16@s',
     paddingVertical: '8@vs',
     borderRadius: '20@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   tagText: {
     fontSize: '13@ms',
-    color: '#333',
+    color: COLORS.textSemiDark,
     fontWeight: '400',
   },
   categoriesContainer: {
@@ -289,7 +568,7 @@ const styles = ScaledSheet.create({
     borderRadius: '40@s',
     overflow: 'hidden',
     marginBottom: '2@vs',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.gray1025,
   },
   categoryImage: {
     width: '100%',
@@ -298,7 +577,7 @@ const styles = ScaledSheet.create({
   categoryText: {
     fontSize: '12@ms',
     fontWeight: '500',
-    color: '#333',
+    color: COLORS.textSemiDark,
     textAlign: 'center',
   },
   brandsContainer: {
@@ -322,8 +601,8 @@ const styles = ScaledSheet.create({
     left: '8@s',
     fontSize: '10@ms',
     fontWeight: '600',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    color: COLORS.white,
+    textShadowColor: COLORS.overlayStrong,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -334,12 +613,12 @@ const styles = ScaledSheet.create({
     width: '140@s',
     borderRadius: '20@s',
     marginRight: '12@s',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
   discountBadge: {
     position: 'absolute',
     top: '8@vs',
-    backgroundColor: '#1C3452',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: '8@s',
     paddingVertical: '4@vs',
     borderRadius: '4@s',
@@ -348,12 +627,12 @@ const styles = ScaledSheet.create({
   discountText: {
     fontSize: '11@ms',
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
   },
   topPickImage: {
     width: '100%',
     height: '140@vs',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.gray1025,
     resizeMode: 'cover',
     borderRadius: '20@s',
   },
@@ -361,7 +640,7 @@ const styles = ScaledSheet.create({
     position: 'absolute',
     top: '100@vs',
     right: '8@s',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: COLORS.overlayLight,
     borderRadius: '20@s',
     padding: '6@s',
     zIndex: 2,
@@ -374,12 +653,65 @@ const styles = ScaledSheet.create({
   topPickName: {
     fontSize: '14@ms',
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
     marginBottom: '4@vs',
   },
   topPickPrice: {
     fontSize: '13@ms',
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '500',
+  },
+  priceStack: {
+    flexDirection: 'column',
+  },
+  originalPrice: {
+    fontSize: '11@ms',
+    color: COLORS.gray700,
+    textDecorationLine: 'line-through',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '8@s',
+    backgroundColor: COLORS.infoSurface,
+    borderRadius: '10@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginBottom: '12@vs',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: '12@ms',
+    color: COLORS.textDark,
+  },
+  retryText: {
+    fontSize: '12@ms',
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8@s',
+    paddingVertical: '20@vs',
+  },
+  loaderText: {
+    fontSize: '13@ms',
+    color: COLORS.textDark,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: '20@vs',
+  },
+  emptyTitle: {
+    marginTop: '8@vs',
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.textDark,
+  },
+  emptySubtitle: {
+    fontSize: '12@ms',
+    color: COLORS.gray500,
   },
 });
