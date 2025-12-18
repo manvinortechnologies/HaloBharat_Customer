@@ -125,6 +125,7 @@ interface Product {
   reviews?: number | null;
   soldCount?: string | null;
   deliveryDays?: string | null;
+  isBestseller?: boolean;
 }
 
 interface VendorDetailData {
@@ -231,10 +232,7 @@ const VendorDetail = () => {
       typeof item?.price === 'number'
         ? item.price
         : Number(item?.price ?? item?.current_price ?? 0);
-    const originalPriceValue =
-      typeof item?.original_price === 'number'
-        ? item.original_price
-        : Number(item?.original_price ?? item?.mrp ?? 0);
+    const originalPriceValue = Number(item?.mrp ?? 0);
 
     const discount =
       Number.isFinite(priceValue) &&
@@ -255,22 +253,13 @@ const VendorDetail = () => {
         : null,
       discount,
       image,
-      rating:
-        typeof item?.rating === 'number'
-          ? item.rating
-          : typeof item?.average_rating === 'number'
-          ? item.average_rating
-          : null,
-      reviews:
-        typeof item?.reviews_count === 'number'
-          ? item.reviews_count
-          : typeof item?.reviews === 'number'
-          ? item.reviews
-          : null,
-      soldCount: item?.sold_count ?? null,
+      rating: item.average_rating,
+      reviews: item.reviews_count || item.reviews.length || 0,
+      soldCount: item.sold_count,
       deliveryDays: item?.delivery_days
         ? `Delivery in ${item.delivery_days} days`
         : 'Delivery in 3 days',
+      isBestseller: item?.best_seller || false,
     };
   }, []);
 
@@ -451,7 +440,7 @@ const VendorDetail = () => {
         ) : null}
 
         {/* Bestseller Badge */}
-        {selectedCategory === 'bestsellers' ? (
+        {item.isBestseller ? (
           <View style={styles.bestsellerBadge}>
             <Text style={styles.bestsellerText}>Bestseller</Text>
           </View>
@@ -502,11 +491,8 @@ const VendorDetail = () => {
             <Text style={styles.price}>
               {item.price ? `Rs ${item.price}` : 'Price unavailable'}
             </Text>
-            {item.originalPrice &&
-            item.price &&
-            item.originalPrice > item.price ? (
-              <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
-            ) : null}
+
+            <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
           </View>
 
           {/* Rating and Sold Count */}

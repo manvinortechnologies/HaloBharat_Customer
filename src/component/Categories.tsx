@@ -109,7 +109,11 @@ const Categories = () => {
             </View>
           )}
         </View>
-        <Text style={styles.categoryName} numberOfLines={2}>
+        <Text
+          style={styles.categoryName}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {item.name}
         </Text>
       </TouchableOpacity>
@@ -161,7 +165,7 @@ const Categories = () => {
         data={categories}
         keyExtractor={item => item.id}
         renderItem={renderCategoryItem}
-        numColumns={4}
+        numColumns={5}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -198,19 +202,19 @@ const styles = ScaledSheet.create({
     // justifyContent: 'space-between',
   },
   categoryItem: {
-    width: '25%', // 4 items per row (100% / 4 - some margin)
+    maxWidth: '65@s', // 4 items per row (100% / 4 - some margin)
     alignItems: 'center',
     marginBottom: '20@vs',
     padding: '5@s',
   },
   imageContainer: {
-    width: '60@s',
-    height: '60@s',
+    width: '50@s',
+    height: '50@s',
     borderRadius: '60@s', // Makes it circular
     backgroundColor: COLORS.gray950,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: '8@vs',
+    // marginBottom: '4@vs',
     // shadowColor: COLORS.black,
     // shadowOffset: {
     //   width: 0,

@@ -15,6 +15,7 @@ import NormalHeader from '../component/NormalHeader';
 import { useNavigation } from '@react-navigation/native';
 import COLORS from '../constants/colors';
 import { getAddresses, deleteAddress } from '../api/addresses';
+import Toast from 'react-native-toast-message';
 
 interface AddressItem {
   id: string | number;
@@ -188,7 +189,11 @@ const MyAddress = () => {
                 error?.response?.data?.error ||
                 error?.message ||
                 'Failed to delete address. Please try again.';
-              Alert.alert('Error', errorMessage);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: errorMessage,
+              });
             } finally {
               setDeletingAddressId(null);
             }

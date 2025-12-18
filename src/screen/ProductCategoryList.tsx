@@ -49,6 +49,7 @@ interface Product {
   reviews?: number | null;
   soldCount?: string | null;
   deliveryDays?: string | null;
+  isBestseller?: boolean;
 }
 
 interface BannerItem {
@@ -203,10 +204,7 @@ const ProductCategoryList = () => {
       typeof item?.price === 'number'
         ? item.price
         : Number(item?.price ?? item?.current_price ?? 0);
-    const originalPriceValue =
-      typeof item?.original_price === 'number'
-        ? item.original_price
-        : Number(item?.original_price ?? item?.mrp ?? 0);
+    const originalPriceValue = Number(item?.mrp ?? 0);
 
     return {
       id: String(item?.id ?? item?.product_id ?? `product-${index}`),
@@ -218,15 +216,11 @@ const ProductCategoryList = () => {
         : null,
       discount: item?.discount_label ?? null,
       image,
-      rating: typeof item?.rating === 'number' ? item.rating : null,
-      reviews:
-        typeof item?.reviews_count === 'number'
-          ? item.reviews_count
-          : typeof item?.reviews === 'number'
-          ? item.reviews
-          : null,
-      soldCount: item?.sold_count ?? null,
-      deliveryDays: item?.deliveryDays ?? null,
+      rating: item.average_rating,
+      reviews: item.reviews_count || item.reviews.length || 0,
+      soldCount: item.sold_count,
+      deliveryDays: item.delivery_days,
+      isBestseller: item?.best_seller || false,
     };
   }, []);
 
@@ -414,9 +408,11 @@ const ProductCategoryList = () => {
         </View> */}
 
         {/* Bestseller Badge */}
-        <View style={styles.bestsellerBadge}>
-          <Text style={styles.bestsellerText}>Bestseller</Text>
-        </View>
+        {item.isBestseller ? (
+          <View style={styles.bestsellerBadge}>
+            <Text style={styles.bestsellerText}>Bestseller</Text>
+          </View>
+        ) : null}
 
         {/* Product Image */}
         <View style={styles.productImageContainer}>
@@ -463,11 +459,8 @@ const ProductCategoryList = () => {
             <Text style={styles.price}>
               {item.price ? `Rs ${item.price}` : 'Price unavailable'}
             </Text>
-            {item.originalPrice &&
-            item.price &&
-            item.originalPrice > item.price ? (
-              <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
-            ) : null}
+
+            <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
           </View>
 
           {/* Rating and Sold Count */}
@@ -602,7 +595,7 @@ const ProductCategoryList = () => {
                     <View style={styles.categoryImageContainer}>
                       <Icon
                         name="category"
-                        size={s(40)}
+                        size={s(30)}
                         color={COLORS.primary}
                       />
                     </View>
@@ -1030,20 +1023,28 @@ const styles = ScaledSheet.create({
     marginRight: '5@s',
   },
   categoryItemActive: {
-    backgroundColor: COLORS.infoSurface,
+    // backgroundColor: COLORS.infoSurface,
     borderRadius: '12@s',
     paddingHorizontal: '6@s',
     paddingVertical: '4@vs',
   },
   categoryImageContainer: {
-    width: '70@s',
-    height: '70@s',
+    width: '50@s',
+    height: '50@s',
     borderRadius: '40@s',
     marginBottom: '2@vs',
     overflow: 'hidden',
     backgroundColor: COLORS.gray950,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 15,
+    shadowColor: COLORS.brandBlue,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   categoryImage: {
     width: '100%',
@@ -1115,7 +1116,7 @@ const styles = ScaledSheet.create({
   },
   productImageContainer: {
     width: '100%',
-    height: '160@vs',
+    height: '150@s',
     backgroundColor: COLORS.gray1025,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1127,7 +1128,7 @@ const styles = ScaledSheet.create({
   },
   favoriteButton: {
     position: 'absolute',
-    top: '130@vs',
+    top: '120@s',
     right: '8@s',
     backgroundColor: COLORS.overlayStrong,
     borderRadius: '20@s',

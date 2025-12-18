@@ -43,6 +43,9 @@ import BrandProductsList from './src/screen/BrandProductsList';
 import VendorDetail from './src/screen/VendorDetail';
 import ChatsScreen from './src/screen/ChatsScreen';
 import ChatingScreen from './src/screen/ChatingScreen';
+import Account from './src/screen/Account';
+import Toast from 'react-native-toast-message';
+import { CartProvider } from './src/context/CartContext';
 
 const Stack = createStackNavigator();
 const navigationRef = createNavigationContainerRef<any>();
@@ -66,50 +69,57 @@ const App = () => {
   }, []);
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="SplashScreen" component={SplashScreen} />
-        <Stack.Screen name="LoginScreen" component={LoginScreen} />
-        <Stack.Screen name="OtpScreen" component={OtpScreen} />
-        <Stack.Screen name="Signup" component={Signup} />
-        <Stack.Screen name="MainTab" component={MainTabScreen} />
-        {/* <Stack.Screen name="Home" component={Home} /> */}
-        {/* <Stack.Screen name="More" component={More} /> */}
-        <Stack.Screen name="Categories" component={Categories} />
-        <Stack.Screen
-          name="ProductCategoryList"
-          component={ProductCategoryList}
-        />
-        <Stack.Screen name="ProductList" component={ProductList} />
-        <Stack.Screen name="ProductDetail" component={ProductDetail} />
-        <Stack.Screen name="RatingReview" component={RatingReview} />
-        <Stack.Screen name="Vendors" component={Vendors} />
-        <Stack.Screen name="VendorList" component={VendorList} />
-        <Stack.Screen name="VendorDetail" component={VendorDetail} />
-        <Stack.Screen name="BrandList" component={BrandList} />
-        <Stack.Screen name="BrandProductsList" component={BrandProductsList} />
-        <Stack.Screen name="SearchScreen" component={SearchScreen} />
-        <Stack.Screen name="Wishlist" component={Wishlist} />
-        <Stack.Screen name="Notification" component={Notification} />
-        <Stack.Screen name="MyCart" component={MyCart} />
-        <Stack.Screen
-          name="PaymentConfirmation"
-          component={PaymentConfirmation}
-        />
-        <Stack.Screen name="AssignProject" component={AssignProject} />
-        <Stack.Screen name="MyOrders" component={MyOrders} />
-        <Stack.Screen name="OrderDetail" component={OrderDetail} />
-        <Stack.Screen name="ReturnOrder" component={ReturnOrder} />
-        <Stack.Screen name="MyProject" component={MyProject} />
-        <Stack.Screen name="MyProjectDetail" component={MyProjectDetail} />
-        <Stack.Screen name="MyAddress" component={MyAddress} />
-        <Stack.Screen name="AddAddress" component={AddAddress} />
-        <Stack.Screen name="HelpSupport" component={HelpSupport} />
-        <Stack.Screen name="TermsPolicies" component={TermsPolicies} />
-        <Stack.Screen name="ChatsScreen" component={ChatsScreen} />
-        <Stack.Screen name="ChatingScreen" component={ChatingScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <CartProvider>
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="SplashScreen" component={SplashScreen} />
+          <Stack.Screen name="LoginScreen" component={LoginScreen} />
+          <Stack.Screen name="OtpScreen" component={OtpScreen} />
+          <Stack.Screen name="Signup" component={Signup} />
+          <Stack.Screen name="MainTab" component={MainTabScreen} />
+          <Stack.Screen name="Account" component={Account} />
+          {/* <Stack.Screen name="Home" component={Home} /> */}
+          {/* <Stack.Screen name="More" component={More} /> */}
+          <Stack.Screen name="Categories" component={Categories} />
+          <Stack.Screen
+            name="ProductCategoryList"
+            component={ProductCategoryList}
+          />
+          <Stack.Screen name="ProductList" component={ProductList} />
+          <Stack.Screen name="ProductDetail" component={ProductDetail} />
+          <Stack.Screen name="RatingReview" component={RatingReview} />
+          <Stack.Screen name="Vendors" component={Vendors} />
+          <Stack.Screen name="VendorList" component={VendorList} />
+          <Stack.Screen name="VendorDetail" component={VendorDetail} />
+          <Stack.Screen name="BrandList" component={BrandList} />
+          <Stack.Screen
+            name="BrandProductsList"
+            component={BrandProductsList}
+          />
+          <Stack.Screen name="SearchScreen" component={SearchScreen} />
+          <Stack.Screen name="Wishlist" component={Wishlist} />
+          <Stack.Screen name="Notification" component={Notification} />
+          <Stack.Screen name="MyCart" component={MyCart} />
+          <Stack.Screen
+            name="PaymentConfirmation"
+            component={PaymentConfirmation}
+          />
+          <Stack.Screen name="AssignProject" component={AssignProject} />
+          <Stack.Screen name="MyOrders" component={MyOrders} />
+          <Stack.Screen name="OrderDetail" component={OrderDetail} />
+          <Stack.Screen name="ReturnOrder" component={ReturnOrder} />
+          <Stack.Screen name="MyProject" component={MyProject} />
+          <Stack.Screen name="MyProjectDetail" component={MyProjectDetail} />
+          <Stack.Screen name="MyAddress" component={MyAddress} />
+          <Stack.Screen name="AddAddress" component={AddAddress} />
+          <Stack.Screen name="HelpSupport" component={HelpSupport} />
+          <Stack.Screen name="TermsPolicies" component={TermsPolicies} />
+          <Stack.Screen name="ChatsScreen" component={ChatsScreen} />
+          <Stack.Screen name="ChatingScreen" component={ChatingScreen} />
+        </Stack.Navigator>
+        <Toast />
+      </NavigationContainer>
+    </CartProvider>
   );
 };
 

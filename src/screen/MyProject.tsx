@@ -17,6 +17,7 @@ import NormalHeader from '../component/NormalHeader';
 import { useNavigation } from '@react-navigation/native';
 import COLORS from '../constants/colors';
 import { createProject, getProjects } from '../api/projects';
+import Toast from 'react-native-toast-message';
 
 const MyProject = () => {
   const navigation = useNavigation<any>();
@@ -124,7 +125,11 @@ const MyProject = () => {
   const handleSaveProject = useCallback(async () => {
     const trimmedName = projectName.trim();
     if (!trimmedName) {
-      Alert.alert('Please enter a project name');
+      Toast.show({
+        type: 'error',
+        text1: 'Project Creation Failed',
+        text2: 'Please enter a project name',
+      });
       return;
     }
     try {
@@ -135,13 +140,15 @@ const MyProject = () => {
       setShowSuccessModal(true);
       fetchProjects('refresh', 1);
     } catch (error: any) {
-      Alert.alert(
-        'Project Creation Failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Project Creation Failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to create project.',
-      );
+      });
     } finally {
       setCreatingProject(false);
     }

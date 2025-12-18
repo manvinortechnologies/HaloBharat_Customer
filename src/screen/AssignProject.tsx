@@ -27,6 +27,7 @@ import {
   createProject,
   getProjects,
 } from '../api/projects';
+import Toast from 'react-native-toast-message';
 
 interface Product {
   id: string;
@@ -190,16 +191,22 @@ const AssignProject = () => {
     try {
       setAssignLoading(true);
       await assignProjectItems(selectedProject, pendingOrderItemIds);
-      Alert.alert('Success', 'Item assigned to the selected project.');
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Item assigned to the selected project.',
+      });
       closeExistingProjectModal();
     } catch (error: any) {
-      Alert.alert(
-        'Assignment Failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Assignment Failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to assign project.',
-      );
+      });
     } finally {
       setAssignLoading(false);
     }
@@ -235,13 +242,15 @@ const AssignProject = () => {
       //   );
       // }
     } catch (error: any) {
-      Alert.alert(
-        'Project Creation Failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Project Creation Failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to create project.',
-      );
+      });
     } finally {
       setCreatingProject(false);
     }

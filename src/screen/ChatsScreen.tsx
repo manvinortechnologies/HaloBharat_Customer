@@ -22,6 +22,7 @@ import {
 } from '@react-navigation/native';
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { getSupportTickets, createSupportTicket } from '../api/support';
+import Toast from 'react-native-toast-message';
 
 const ChatsScreen = () => {
   const navigation = useNavigation<
@@ -112,7 +113,11 @@ const ChatsScreen = () => {
       console.error('Error fetching chat data:', err);
       setError('Failed to load chat data');
       if (!isRefresh) {
-        Alert.alert('Error', 'Failed to load chat data. Please try again.');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to load chat data. Please try again.',
+        });
       }
     } finally {
       if (isRefresh) {
@@ -131,7 +136,11 @@ const ChatsScreen = () => {
   // Create new ticket
   const handleCreateTicket = async () => {
     if (!subject.trim()) {
-      Alert.alert('Validation', 'Please enter a subject for the ticket.');
+      Toast.show({
+        type: 'error',
+        text1: 'Validation',
+        text2: 'Please enter a subject for the ticket.',
+      });
       return;
     }
 
@@ -155,11 +164,15 @@ const ChatsScreen = () => {
       await fetchChatData(true);
     } catch (error: any) {
       console.error('Error creating ticket:', error);
-      Alert.alert(
-        'Error',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2:
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
           'Failed to create ticket. Please try again.',
-      );
+      });
     } finally {
       setCreatingTicket(false);
     }

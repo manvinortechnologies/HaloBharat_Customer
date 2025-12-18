@@ -152,6 +152,7 @@ const SearchScreen = ({ navigation }: any) => {
         item?.featured_image ??
         item?.primary_image ??
         null,
+      isBestseller: item?.best_seller || false,
     };
   }, []);
 
@@ -421,13 +422,9 @@ const SearchScreen = ({ navigation }: any) => {
                   <View style={styles.topPickInfo}>
                     <Text style={styles.topPickName}>{item.name}</Text>
                     <View style={styles.priceStack}>
-                      {item.originalPrice &&
-                        item.discountedPrice &&
-                        item.originalPrice > item.discountedPrice && (
-                          <Text style={styles.originalPrice}>
-                            {formatPrice(item.originalPrice)}
-                          </Text>
-                        )}
+                      <Text style={styles.originalPrice}>
+                        {formatPrice(item.originalPrice)}
+                      </Text>
                       <Text style={styles.topPickPrice}>
                         {formatPrice(item.discountedPrice) ||
                           formatPrice(item.originalPrice) ||
@@ -469,6 +466,7 @@ interface ProductCard {
   discountedPrice: number | null;
   discountLabel: string | null;
   imageUrl: string | null;
+  isBestseller: boolean;
 }
 
 const styles = ScaledSheet.create({

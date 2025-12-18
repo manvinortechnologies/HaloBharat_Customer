@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../config/api';
 import { AUTH_DATA_KEY, AuthData, storeAuthData } from '../storage/authStorage';
 
 const AUTH_FALLBACK_KEY = 'authData';
-const REFRESH_ENDPOINT = '/account/token/refresh/';
+const REFRESH_ENDPOINT = 'account/token/refresh/';
 
 const getStoredAuthData = async () => {
   const raw =

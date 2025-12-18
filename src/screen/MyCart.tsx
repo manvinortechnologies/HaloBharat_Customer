@@ -18,18 +18,9 @@ import Ion from 'react-native-vector-icons/Ionicons';
 import NormalHeader from '../component/NormalHeader';
 import ProductCard from '../component/Product';
 import COLORS from '../constants/colors';
-import { getCartItems, checkoutCart, removeCartItem } from '../api/cart';
-
-interface CartItem {
-  id: string;
-  title: string;
-  seller: string | null;
-  qtyLabel: string;
-  price: number;
-  oldPrice?: number | null;
-  deliveryDate?: string | null;
-  imageUrl?: string | null;
-}
+import { checkoutCart, removeCartItem, updateCartItem } from '../api/cart';
+import Toast from 'react-native-toast-message';
+import { useCart, CartItem } from '../context/CartContext';
 
 interface BillDetails {
   itemTotal: number;
@@ -59,13 +50,11 @@ interface BestsellerItem {
 }
 
 const MyCart = ({ navigation }: any) => {
+  const { cartItems, loading, refreshing, error, fetchCart, updateQuantity } =
+    useCart();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(
     () => new Set(),
   );
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const fallbackImage = useMemo(() => require('../assets/product1.png'), []);
   const placeholderProductImage = useMemo(
     () => require('../assets/product2.png'),
@@ -89,6 +78,7 @@ const MyCart = ({ navigation }: any) => {
   const [pendingRemovalItem, setPendingRemovalItem] = useState<CartItem | null>(
     null,
   );
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const parseAmount = useCallback((value: any) => {
     if (typeof value === 'number') {
       return value;
@@ -111,6 +101,10 @@ const MyCart = ({ navigation }: any) => {
 
       const priceValue = item?.current_price;
       const oldPriceValue = item?.original_price;
+      const productId = String(
+        item?.product_id ?? item?.product?.id ?? product?.id ?? '',
+      );
+      const minimumQuantity = Number(item?.min_order_quantity || 1);
 
       return {
         id: String(item?.id ?? item?.cart_item_id ?? `cart-item-${index}`),
@@ -121,6 +115,9 @@ const MyCart = ({ navigation }: any) => {
         oldPrice: oldPriceValue,
         deliveryDate: item?.delivery_date ?? item?.deliveryDate ?? null,
         imageUrl: product?.product_image,
+        productId: productId,
+        quantity: quantity,
+        minimumQuantity: minimumQuantity,
       };
     },
     [parseAmount],
@@ -162,9 +159,7 @@ const MyCart = ({ navigation }: any) => {
     (product: any, index: number): BestsellerItem => {
       const imageUrl =
         product?.images?.find((img: any) => img?.url)?.url ?? product?.image;
-      const originalPriceRaw = parseAmount(
-        product?.original_price ?? product?.price_including_gst,
-      );
+      const originalPriceRaw = Number(product?.mrp ?? 0);
       const discountedPriceRaw = parseAmount(
         product?.price ?? product?.sale_price,
       );
@@ -187,89 +182,64 @@ const MyCart = ({ navigation }: any) => {
     [parseAmount, placeholderProductImage],
   );
 
-  const fetchCart = useCallback(
-    async (mode: 'default' | 'refresh' = 'default') => {
-      if (mode === 'refresh') {
-        setRefreshing(true);
+  const fetchCartWithDetails = useCallback(async () => {
+    try {
+      const { getCartItems } = await import('../api/cart');
+      const payload = await getCartItems();
+
+      if (cartItems.length === 0) {
+        setSelectedItems(new Set());
       } else {
-        setLoading(true);
-      }
-      try {
-        setError(null);
-        const payload = await getCartItems();
-        const listSource = Array.isArray(payload?.items) ? payload.items : [];
-        const normalized = listSource.map(normalizeCartItem);
-        setCartItems(normalized);
-        if (normalized.length === 0) {
-          setSelectedItems(new Set());
-        } else {
-          setSelectedItems(prev => {
-            const next = new Set<string>();
-            if (prev.size === 0) {
-              normalized.forEach((item: CartItem) => next.add(item.id));
-            } else {
-              normalized.forEach((item: CartItem) => {
-                if (prev.has(item.id)) {
-                  next.add(item.id);
-                }
-              });
-              if (next.size === 0) {
-                normalized.forEach((item: CartItem) => next.add(item.id));
+        setSelectedItems(prev => {
+          const next = new Set<string>();
+          if (prev.size === 0) {
+            cartItems.forEach((item: CartItem) => next.add(item.id));
+          } else {
+            cartItems.forEach((item: CartItem) => {
+              if (prev.has(item.id)) {
+                next.add(item.id);
               }
+            });
+            if (next.size === 0) {
+              cartItems.forEach((item: CartItem) => next.add(item.id));
             }
-            return next;
-          });
-        }
-
-        const apiBill = payload?.bill_details ?? {};
-        setBillDetails({
-          itemTotal: parseAmount(apiBill?.item_total),
-          deliveryFees: parseAmount(apiBill?.delivery_fees),
-          platformFees: parseAmount(apiBill?.platform_fees),
-          gst: parseAmount(apiBill?.gst),
-          totalAmount: parseAmount(apiBill?.total),
+          }
+          return next;
         });
-
-        setDeliveryAddress(
-          payload?.delivery_address
-            ? normalizeAddress(payload.delivery_address)
-            : null,
-        );
-
-        const bestsellerSource = Array.isArray(payload?.bestsellers)
-          ? payload.bestsellers
-          : [];
-        setBestsellerProducts(
-          bestsellerSource.map((product: any, index: number) =>
-            normalizeBestseller(product, index),
-          ),
-        );
-      } catch (err: any) {
-        setError(err?.message || 'Unable to load cart.');
-        setCartItems([]);
-        setDeliveryAddress(null);
-        setBillDetails({
-          itemTotal: 0,
-          deliveryFees: 0,
-          platformFees: 0,
-          gst: 0,
-          totalAmount: 0,
-        });
-        setBestsellerProducts([]);
-      } finally {
-        if (mode === 'refresh') {
-          setRefreshing(false);
-        } else {
-          setLoading(false);
-        }
       }
-    },
-    [normalizeCartItem, parseAmount, normalizeAddress, normalizeBestseller],
-  );
+
+      const apiBill = payload?.bill_details ?? {};
+      setBillDetails({
+        itemTotal: parseAmount(apiBill?.item_total),
+        deliveryFees: parseAmount(apiBill?.delivery_fees),
+        platformFees: parseAmount(apiBill?.platform_fees),
+        gst: parseAmount(apiBill?.gst),
+        totalAmount: parseAmount(apiBill?.total),
+      });
+
+      setDeliveryAddress(
+        payload?.delivery_address
+          ? normalizeAddress(payload.delivery_address)
+          : null,
+      );
+
+      const bestsellerSource = Array.isArray(payload?.bestsellers)
+        ? payload.bestsellers
+        : [];
+      setBestsellerProducts(
+        bestsellerSource.map((product: any, index: number) =>
+          normalizeBestseller(product, index),
+        ),
+      );
+    } catch (err: any) {
+      // Error handling for bill details
+    }
+  }, [cartItems, parseAmount, normalizeAddress, normalizeBestseller]);
 
   useEffect(() => {
     fetchCart();
-  }, [fetchCart]);
+    fetchCartWithDetails();
+  }, []);
 
   const addressLine = useMemo(() => {
     if (!deliveryAddress) {
@@ -305,36 +275,80 @@ const MyCart = ({ navigation }: any) => {
     try {
       setRemovingItemId(targetId);
       await removeCartItem(targetId);
-      setCartItems(prev => {
-        const updated = prev.filter(cartItem => cartItem.id !== targetId);
-        setSelectedItems(prevSelected => {
-          const next = new Set(prevSelected);
-          next.delete(targetId);
-          if (next.size === 0 && updated.length > 0) {
-            updated.forEach(cartItem => next.add(cartItem.id));
-          }
-          return next;
-        });
-        return updated;
+      await fetchCart('refresh');
+      await fetchCartWithDetails();
+      setSelectedItems(prevSelected => {
+        const next = new Set(prevSelected);
+        next.delete(targetId);
+        if (next.size === 0 && cartItems.length > 1) {
+          cartItems
+            .filter(item => item.id !== targetId)
+            .forEach(cartItem => next.add(cartItem.id));
+        }
+        return next;
       });
     } catch (error: any) {
-      Alert.alert(
-        'Remove Failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Remove Failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to remove item. Please try again.',
-      );
+      });
     } finally {
       setRemovingItemId(null);
       setConfirmRemoveVisible(false);
       setPendingRemovalItem(null);
     }
-  }, [pendingRemovalItem]);
+  }, [pendingRemovalItem, fetchCart, fetchCartWithDetails, cartItems]);
+
+  const handleUpdateQuantity = useCallback(
+    async (item: CartItem, newQuantity: number) => {
+      try {
+        setUpdatingItemId(item.id);
+        await updateQuantity(item, newQuantity);
+        await fetchCartWithDetails();
+      } catch (error: any) {
+        // Error is already handled in context
+      } finally {
+        setUpdatingItemId(null);
+      }
+    },
+    [updateQuantity, fetchCartWithDetails],
+  );
+
+  const handleDecreaseQuantity = useCallback(
+    (item: CartItem) => {
+      const newQuantity = item.quantity - 1;
+      if (newQuantity >= item.minimumQuantity) {
+        handleUpdateQuantity(item, newQuantity);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Quantity',
+          text2: `Minimum quantity is ${item.minimumQuantity}`,
+        });
+      }
+    },
+    [handleUpdateQuantity],
+  );
+
+  const handleIncreaseQuantity = useCallback(
+    (item: CartItem) => {
+      handleUpdateQuantity(item, item.quantity + 1);
+    },
+    [handleUpdateQuantity],
+  );
 
   const handleCheckout = useCallback(async () => {
     if (cartItems.length === 0) {
-      Alert.alert('Cart Empty', 'Please add items to cart before checkout.');
+      Toast.show({
+        type: 'error',
+        text1: 'Cart Empty',
+        text2: 'Please add items to cart before checkout.',
+      });
       return;
     }
 
@@ -367,16 +381,17 @@ const MyCart = ({ navigation }: any) => {
         },
         paymentMethod: payload.payment_method,
       });
-      setCartItems([]);
       setSelectedItems(new Set());
     } catch (error: any) {
-      Alert.alert(
-        'Checkout Failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Checkout Failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to complete checkout.',
-      );
+      });
     } finally {
       setCheckoutLoading(false);
     }
@@ -504,7 +519,51 @@ const MyCart = ({ navigation }: any) => {
                       <Text style={styles.seller}>Seller - {item.seller}</Text>
                     ) : null}
 
-                    <Text style={styles.qtyText}>Qty - {item.qtyLabel}</Text>
+                    <View style={styles.quantityControlsContainer}>
+                      <Text style={styles.qtyLabel}>Quantity:</Text>
+                      <View style={styles.quantityControls}>
+                        <TouchableOpacity
+                          style={[
+                            styles.quantityButton,
+                            item.quantity <= item.minimumQuantity &&
+                              styles.quantityButtonDisabled,
+                          ]}
+                          onPress={() => handleDecreaseQuantity(item)}
+                          disabled={
+                            updatingItemId === item.id ||
+                            item.quantity <= item.minimumQuantity
+                          }
+                        >
+                          <Icon
+                            name="remove"
+                            size={ms(18)}
+                            color={
+                              item.quantity <= item.minimumQuantity
+                                ? COLORS.gray700
+                                : COLORS.black
+                            }
+                          />
+                        </TouchableOpacity>
+                        {updatingItemId === item.id ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={COLORS.primary}
+                            style={styles.quantityLoader}
+                          />
+                        ) : (
+                          <Text style={styles.quantityText}>
+                            {item.quantity}
+                          </Text>
+                        )}
+                        <TouchableOpacity
+                          style={styles.quantityButton}
+                          onPress={() => handleIncreaseQuantity(item)}
+                          disabled={updatingItemId === item.id}
+                        >
+                          <Icon name="add" size={ms(18)} color={COLORS.black} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
                     <View style={styles.qtyContainer}>
                       <Text style={styles.deliveryText}>
@@ -826,6 +885,49 @@ const styles = ScaledSheet.create({
     paddingHorizontal: '6@s',
     // marginRight: '10@s',
     marginBottom: '2@s',
+  },
+  quantityControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: '6@vs',
+    gap: '8@s',
+  },
+  qtyLabel: {
+    fontSize: '12@ms',
+    color: COLORS.textSemiDark,
+    fontWeight: '500',
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '12@s',
+    borderWidth: 1,
+    borderColor: COLORS.gray850,
+    borderRadius: '6@s',
+    paddingHorizontal: '8@s',
+    paddingVertical: '4@vs',
+  },
+  quantityButton: {
+    width: '28@s',
+    height: '28@s',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4@s',
+    backgroundColor: COLORS.gray900,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: COLORS.gray850,
+  },
+  quantityText: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    minWidth: '30@s',
+    textAlign: 'center',
+  },
+  quantityLoader: {
+    marginHorizontal: '8@s',
   },
   deliveryText: {
     fontSize: '10@ms',

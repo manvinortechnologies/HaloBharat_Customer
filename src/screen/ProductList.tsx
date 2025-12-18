@@ -173,10 +173,7 @@ const ProductList = () => {
       typeof item?.price === 'number'
         ? item.price
         : Number(item?.price ?? item?.current_price ?? 0);
-    const originalPriceValue =
-      typeof item?.original_price === 'number'
-        ? item.original_price
-        : Number(item?.original_price ?? item?.mrp ?? 0);
+    const originalPriceValue = Number(item?.mrp ?? 0);
 
     const discountLabel =
       Number.isFinite(priceValue) &&
@@ -197,15 +194,10 @@ const ProductList = () => {
         : null,
       discount: discountLabel,
       image,
-      rating: typeof item?.rating === 'number' ? item.rating : null,
-      reviews:
-        typeof item?.reviews_count === 'number'
-          ? item.reviews_count
-          : typeof item?.reviews === 'number'
-          ? item.reviews
-          : null,
-      soldCount: item?.sold_count ?? null,
-      deliveryDays: item?.deliveryDays ?? item?.delivery_days_label ?? null,
+      rating: item.average_rating,
+      reviews: item.reviews_count || item.reviews.length || 0,
+      soldCount: item.sold_count,
+      deliveryDays: item?.delivery_days,
     };
   }, []);
 
@@ -415,9 +407,7 @@ const ProductList = () => {
             <Text style={styles.price}>
               {item.price != null ? `Rs ${item.price}` : 'Price on request'}
             </Text>
-            {item.originalPrice && item.originalPrice > (item.price ?? 0) ? (
-              <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
-            ) : null}
+            <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
           </View>
 
           {item.rating ? (

@@ -21,6 +21,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import COLORS from '../constants/colors';
 import { getWishlist, removeWishlistItem } from '../api/wishlist';
 import { addCartItem } from '../api/cart';
+import Toast from 'react-native-toast-message';
 
 interface WishlistProduct {
   id: string;
@@ -84,10 +85,7 @@ const Wishlist = () => {
         ? product.price
         : Number(product?.price ?? product?.current_price ?? 0);
 
-    const originalPriceValue =
-      typeof product?.original_price === 'number'
-        ? product.original_price
-        : Number(product?.original_price ?? product?.mrp ?? 0);
+    const originalPriceValue = Number(product?.mrp ?? 0);
 
     // Get first image from images array if available
     const imageUrl =
@@ -121,28 +119,14 @@ const Wishlist = () => {
       id: String(wishlistItemId ?? product?.id ?? `wishlist-${index}`), // Use wishlist item ID for removal
       name: product?.name ?? product?.title ?? 'Product',
       price: Number.isFinite(priceValue) ? priceValue : null,
-      originalPrice: Number.isFinite(originalPriceValue)
-        ? originalPriceValue
-        : null,
+      originalPrice: originalPriceValue,
       discountLabel,
       imageUrl,
-      rating:
-        typeof product?.rating === 'number'
-          ? product.rating
-          : product?.average_rating ?? null,
-      reviews:
-        typeof product?.reviews === 'number'
-          ? product.reviews
-          : product?.reviews_count ?? null,
-      soldCount: product?.sold_count ?? product?.soldCount ?? null,
-      deliveryText:
-        product?.delivery_text ??
-        product?.deliveryDays ??
-        product?.availability_status ??
-        (product?.delivery_days
-          ? `Delivery in ${product.delivery_days} days`
-          : null),
-      isBestseller: Boolean(product?.is_bestseller ?? product?.isBestseller),
+      rating: product.average_rating,
+      reviews: product.reviews_count || product.reviews.length || 0,
+      soldCount: product.sold_count,
+      deliveryText: product.delivery_days,
+      isBestseller: Boolean(product?.best_seller),
       productId: String(product?.id ?? item?.product ?? ''),
       minOrderQuantity: Number.isFinite(minOrderQuantity)
         ? minOrderQuantity
@@ -246,7 +230,11 @@ const Wishlist = () => {
   const handleAddToCart = async (product: WishlistProduct) => {
     const productId = product.productId;
     if (!productId) {
-      Alert.alert('Unable to add to cart', 'Missing product identifier.');
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to add to cart',
+        text2: 'Missing product identifier.',
+      });
       return;
     }
 
@@ -258,13 +246,15 @@ const Wishlist = () => {
         { text: 'OK' },
       ]);
     } catch (error: any) {
-      Alert.alert(
-        'Add to cart failed',
-        error?.response?.data?.message ||
+      Toast.show({
+        type: 'error',
+        text1: 'Add to cart failed',
+        text2:
+          error?.response?.data?.message ||
           error?.response?.data?.error ||
           error?.message ||
           'Unable to add this product to cart.',
-      );
+      });
     } finally {
       setAddingToCartId(null);
     }
@@ -365,11 +355,8 @@ const Wishlist = () => {
             ) : (
               <Text style={styles.priceUnavailable}>Price unavailable</Text>
             )}
-            {item.originalPrice &&
-            item.price &&
-            item.originalPrice > item.price ? (
-              <Text style={styles.originalPrice}>₹{item.originalPrice}</Text>
-            ) : null}
+
+            <Text style={styles.originalPrice}>₹{item.originalPrice}</Text>
           </View>
 
           {/* Delivery/Bestseller Badge */}

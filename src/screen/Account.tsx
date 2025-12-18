@@ -15,6 +15,7 @@ import auth from '@react-native-firebase/auth';
 import { clearAuthData } from '../storage/authStorage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
   LoginScreen: undefined;
@@ -31,6 +32,7 @@ const Account = () => {
     setError(null);
     try {
       const data = await getProfile();
+      await AsyncStorage.setItem('profile', JSON.stringify(data));
       setProfile(data);
     } catch (err: any) {
       setError(err?.message || 'Unable to load profile.');

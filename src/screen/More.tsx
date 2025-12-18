@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
@@ -9,6 +9,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import COLORS from '../constants/colors';
 import auth from '@react-native-firebase/auth';
 import { clearAuthData } from '../storage/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define your stack param list
 type RootStackParamList = {
@@ -25,7 +26,17 @@ type RootStackParamList = {
 const More = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
-  const userName = 'Rahul Sharma';
+  const [profile, setProfile] = useState<any>(null);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const profileData = await AsyncStorage.getItem('profile');
+      if (profileData) {
+        const data = JSON.parse(profileData);
+        setProfile(data?.full_name);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Menu items with screen mapping
   const menuItems = [
@@ -82,11 +93,7 @@ const More = () => {
   ];
 
   const handleMenuItemPress = (screen: string) => {
-    if (screen === 'Account') {
-      navigation.navigate('MainTab', { screenName: 'ACCOUNT' });
-    } else {
-      navigation.navigate(screen as never);
-    }
+    navigation.navigate(screen as never);
   };
 
   const handleLogout = () => {
@@ -119,7 +126,7 @@ const More = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.greetingContainer}>
-          <Text style={styles.greeting}>Hey, {userName}!</Text>
+          <Text style={styles.greeting}>Hey, {profile}!</Text>
         </View>
 
         <View style={styles.menuContainer}>
@@ -136,7 +143,7 @@ const More = () => {
                 {item.isProfile ? (
                   <View style={styles.profileCircle}>
                     <Text style={styles.profileLetter}>
-                      {userName[0].toUpperCase()}
+                      {profile?.slice(0, 1)?.toUpperCase()}
                     </Text>
                   </View>
                 ) : (

@@ -8,18 +8,20 @@ import COLORS from '../constants/colors';
 interface NormalHeaderProps {
   title?: string;
   showBackButton?: boolean;
+  rightButton?: React.ReactNode;
 }
 
 const NormalHeader: React.FC<NormalHeaderProps> = ({
   title = 'Title',
   showBackButton = true,
+  rightButton = null,
 }) => {
   const navigation = useNavigation<any>();
 
   return (
     <View style={styles.container}>
       {/* Back Button */}
-      {showBackButton && (
+      {showBackButton && navigation.canGoBack() && (
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -29,6 +31,7 @@ const NormalHeader: React.FC<NormalHeaderProps> = ({
       )}
       {/* Title */}
       <Text style={styles.title}>{title}</Text>
+      {rightButton}
     </View>
   );
 };
@@ -53,6 +56,7 @@ const styles = ScaledSheet.create({
     marginRight: '10@s',
   },
   title: {
+    flex: 1,
     fontSize: '18@ms',
     fontWeight: '700',
     color: COLORS.black,

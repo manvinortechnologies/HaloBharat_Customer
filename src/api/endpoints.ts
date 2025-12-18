@@ -50,6 +50,7 @@ export const CART_ENDPOINTS = {
   add: () => '/customer/api/cart/add/',
   checkout: () => '/customer/api/checkout/',
   remove: (id: string | number) => `/customer/api/cart/${id}/remove/`,
+  update: (id: string | number) => `/customer/api/cart/${id}/`,
 };
 
 export const ORDER_ENDPOINTS = {
@@ -75,6 +76,8 @@ export const VENDOR_ENDPOINTS = {
 export const REVIEW_ENDPOINTS = {
   product: (id: string | number, params?: { search?: string }) =>
     appendQuery(`/customer/api/reviews/${id}/`, params),
+  create: (productId: string | number) =>
+    `/customer/api/products/${productId}/reviews/`,
 };
 
 export const PROFILE_ENDPOINTS = {

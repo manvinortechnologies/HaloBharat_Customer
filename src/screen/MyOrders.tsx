@@ -25,6 +25,7 @@ type RootStackParamList = {
   OrderDetail: {
     orderId: string;
   };
+  MyCart: undefined;
 };
 
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -114,82 +115,82 @@ const MyOrders = () => {
     const orderDate = formatOrderDate(
       item?.created_at ?? item?.delivery_datetime,
     );
-    const statusRaw = (item?.status_display ??
-      item?.status ??
-      'Pending') as string;
-    const statusLabel =
-      statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1).toLowerCase();
     const products = Array.isArray(item?.items) ? item.items : [];
+    const itemsCount = products.length;
+    const deliveryTo = item?.delivery_to ?? '';
 
     return (
-      <View style={styles.orderCard}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={styles.orderCard}
+        onPress={() =>
+          navigation.navigate('OrderDetail', {
+            orderId,
+          })
+        }
+      >
         <View style={styles.orderHeader}>
           <Text style={styles.orderId}>Order ID {orderId}</Text>
           <Text style={styles.orderDate}>{orderDate}</Text>
         </View>
 
-        {products.map((product: any, index: number) => (
-          <View key={product?.id ?? product?.product_id ?? index}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.productRow}
-              onPress={() =>
-                navigation.navigate('OrderDetail', {
-                  orderId,
-                })
-              }
-            >
-              <View style={styles.leftSection}>
-                {product?.product_image ? (
-                  <Image
-                    source={
-                      product?.product_image
-                        ? { uri: product.product_image }
-                        : fallbackImage
-                    }
-                    style={styles.productImage}
-                  />
-                ) : (
-                  <Ionicons
-                    name="image-outline"
-                    size={s(40)}
-                    color={COLORS.primary}
-                  />
-                )}
-              </View>
-              <View style={styles.rightSection}>
-                <Text style={styles.productName}>
-                  {product?.product_name ?? 'Product'}
-                </Text>
-                {product?.vendor_name ? (
-                  <Text style={styles.productDesc}>{product.vendor_name}</Text>
-                ) : null}
-              </View>
-              <Icon name="chevron-right" size={24} color={COLORS.black} />
-            </TouchableOpacity>
-            {index !== products.length - 1 ? (
-              <View style={styles.itemDivider} />
-            ) : null}
-          </View>
-        ))}
-
-        <View
-          style={[
-            styles.statusContainer,
-            statusRaw.toLowerCase().includes('delivered')
-              ? styles.delivered
-              : styles.inTransit,
-          ]}
-        >
-          <Text style={styles.statusText}>{statusLabel}</Text>
+        <View style={styles.itemsInfoRow}>
+          <Text style={styles.itemsCountText}>
+            {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+          </Text>
         </View>
-      </View>
+
+        {deliveryTo ? (
+          <View style={styles.deliveryInfoRow}>
+            <Icon
+              name="location-on"
+              size={16}
+              color={COLORS.textAsh}
+              style={styles.deliveryIcon}
+            />
+            <Text style={styles.deliveryText} numberOfLines={2}>
+              {deliveryTo}
+            </Text>
+          </View>
+        ) : null}
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.imagesScrollContainer}
+        >
+          {products.map((product: any, index: number) => (
+            <View
+              key={product?.id ?? product?.product_id ?? index}
+              style={styles.itemImageContainer}
+            >
+              {product?.product_image && (
+                <Image
+                  source={
+                    product?.product_image
+                      ? { uri: product.product_image }
+                      : fallbackImage
+                  }
+                  style={styles.itemImage}
+                />
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <NormalHeader title="My Orders" />
+      <NormalHeader
+        title="My Orders"
+        rightButton={
+          <TouchableOpacity onPress={() => navigation.navigate('MyCart')}>
+            <Ionicons name="bag-outline" size={24} color={COLORS.black} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -378,46 +379,49 @@ const styles = ScaledSheet.create({
     fontSize: '12@ms',
     color: COLORS.textAsh,
   },
-  productRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: '8@s',
-    padding: '10@s',
+  itemsInfoRow: {
     marginBottom: '8@vs',
-    borderBottomWidth: 0.5,
-    borderColor: COLORS.gray550,
   },
-  itemDivider: {
-    height: 1,
-    backgroundColor: COLORS.gray850,
-    marginHorizontal: '10@s',
-    opacity: 0.4,
+  itemsCountText: {
+    fontSize: '13@ms',
+    color: COLORS.textSemiDark,
+    fontWeight: '500',
   },
-  leftSection: {
-    width: '65@s',
-    height: '45@s',
-    borderRadius: '8@s',
-    overflow: 'hidden',
-    marginRight: '10@s',
-    justifyContent: 'center',
-    alignItems: 'center',
+  deliveryInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: '12@vs',
+    gap: '6@s',
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  deliveryIcon: {
+    marginTop: '2@vs',
   },
-  rightSection: {
+  deliveryText: {
     flex: 1,
-  },
-  productName: {
-    fontSize: '12@ms',
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  productDesc: {
     fontSize: '12@ms',
     color: COLORS.textAsh,
+    lineHeight: '16@vs',
+  },
+  imagesScrollContainer: {
+    gap: '8@s',
+    paddingRight: '4@s',
+  },
+  itemImageContainer: {
+    marginRight: '8@s',
+  },
+  itemImage: {
+    width: '60@s',
+    height: '60@s',
+    borderRadius: '8@s',
+    resizeMode: 'cover',
+  },
+  itemImagePlaceholder: {
+    width: '60@s',
+    height: '60@s',
+    borderRadius: '8@s',
+    backgroundColor: COLORS.gray900,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorBanner: {
     flexDirection: 'row',

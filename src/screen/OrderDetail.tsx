@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { s, ScaledSheet } from 'react-native-size-matters';
@@ -17,6 +19,8 @@ import COLORS from '../constants/colors';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { getOrderDetail } from '../api/orders';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { createReview } from '../api/reviews';
+import Toast from 'react-native-toast-message';
 
 const OrderDetail = ({ navigation }: any) => {
   const route =
@@ -26,6 +30,11 @@ const OrderDetail = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [rating, setRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
   const fallbackImage = useMemo(() => require('../assets/orderImg1.png'), []);
 
   const formatDate = useCallback((value?: string) => {
@@ -115,6 +124,96 @@ const OrderDetail = ({ navigation }: any) => {
     return styles.itemStatusPending;
   };
 
+  const isItemDelivered = useCallback((itemStatus: string) => {
+    const statusLower = itemStatus.toLowerCase();
+    return (
+      statusLower.includes('delivered') ||
+      statusLower.includes('completed') ||
+      statusLower.includes('success')
+    );
+  }, []);
+
+  const handleOpenReviewModal = useCallback((product: any) => {
+    if (!product) {
+      return;
+    }
+    setSelectedProduct(product);
+    setRating(0);
+    setReviewText('');
+    setReviewModalVisible(true);
+  }, []);
+
+  const handleCloseReviewModal = useCallback(() => {
+    setReviewModalVisible(false);
+    setSelectedProduct(null);
+    setRating(0);
+    setReviewText('');
+  }, []);
+
+  const handleSubmitReview = useCallback(async () => {
+    if (!selectedProduct) {
+      return;
+    }
+
+    if (rating === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Required',
+        text2: 'Please select a rating.',
+      });
+      return;
+    }
+
+    if (!reviewText.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Required',
+        text2: 'Please enter a review description.',
+      });
+      return;
+    }
+
+    const productId = selectedProduct?.product_id ?? selectedProduct?.id;
+    if (!productId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Product identifier not found.',
+      });
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      await createReview(String(productId), {
+        product: String(productId),
+        rating: rating,
+        review_text: reviewText.trim(),
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Your review has been submitted successfully.',
+      });
+      handleCloseReviewModal();
+      fetchOrderDetail('refresh');
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: err?.message || 'Failed to submit review. Please try again.',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  }, [
+    selectedProduct,
+    rating,
+    reviewText,
+    handleCloseReviewModal,
+    fetchOrderDetail,
+  ]);
+
   const handleAssignNavigation = useCallback(
     (product: any, action: 'new' | 'existing') => {
       if (!product) {
@@ -122,10 +221,11 @@ const OrderDetail = ({ navigation }: any) => {
       }
       const targetId = product?.id ?? product?.product_id;
       if (!targetId) {
-        Alert.alert(
-          'Unavailable',
-          'No order item identifier found for this product.',
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Unavailable',
+          text2: 'No order item identifier found for this product.',
+        });
         return;
       }
       navigation.navigate('AssignProject', {
@@ -262,6 +362,21 @@ const OrderDetail = ({ navigation }: any) => {
                       </Text>
                     </TouchableOpacity>
                   </View>
+                  {isItemDelivered(product?.status ?? '') && (
+                    <TouchableOpacity
+                      style={styles.reviewButton}
+                      activeOpacity={0.7}
+                      onPress={() => handleOpenReviewModal(product)}
+                    >
+                      <Icon
+                        name="star-border"
+                        size={18}
+                        color={COLORS.accentYellow}
+                        style={styles.reviewIcon}
+                      />
+                      <Text style={styles.reviewButtonText}>Add Review</Text>
+                    </TouchableOpacity>
+                  )}
                   {idx !== items.length - 1 ? (
                     <View style={styles.dashedLine} />
                   ) : null}
@@ -330,25 +445,101 @@ const OrderDetail = ({ navigation }: any) => {
                 </View>
               </View>
             </View>
-
-            <View style={styles.rateContainer}>
-              <View style={styles.starRow}>
-                {Array(5)
-                  .fill(0)
-                  .map((_, i) => (
-                    <Icon
-                      key={i}
-                      name="star-border"
-                      size={26}
-                      color={COLORS.accentYellow}
-                    />
-                  ))}
-              </View>
-              <Text style={styles.rateText}>Rate & Review your order</Text>
-            </View>
           </>
         ) : null}
       </ScrollView>
+
+      {/* Review Modal */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseReviewModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Review</Text>
+              <TouchableOpacity
+                onPress={handleCloseReviewModal}
+                style={styles.modalCloseButton}
+              >
+                <Icon name="close" size={24} color={COLORS.black} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedProduct && (
+              <View style={styles.modalProductInfo}>
+                <Text style={styles.modalProductName}>
+                  {selectedProduct?.product_name ?? 'Product'}
+                </Text>
+                <Text style={styles.modalProductVendor}>
+                  {selectedProduct?.vendor_name ?? ''}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingLabel}>Rating</Text>
+              <View style={styles.starContainer}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setRating(star)}
+                    activeOpacity={0.7}
+                    style={styles.starButton}
+                  >
+                    <Icon
+                      name={star <= rating ? 'star' : 'star-border'}
+                      size={32}
+                      color={COLORS.accentYellow}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.reviewInputContainer}>
+              <Text style={styles.reviewInputLabel}>Description</Text>
+              <TextInput
+                style={styles.reviewInput}
+                placeholder="Write your review here..."
+                placeholderTextColor={COLORS.gray500}
+                value={reviewText}
+                onChangeText={setReviewText}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={handleCloseReviewModal}
+                disabled={submittingReview}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalSubmitButton,
+                  submittingReview && styles.modalSubmitButtonDisabled,
+                ]}
+                onPress={handleSubmitReview}
+                disabled={submittingReview}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalSubmitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -449,22 +640,6 @@ const styles = ScaledSheet.create({
   cod: {
     color: COLORS.accentCrimson,
     fontWeight: '600',
-  },
-  rateContainer: {
-    alignItems: 'flex-start',
-    marginBottom: '20@vs',
-    backgroundColor: COLORS.white,
-    paddingHorizontal: '20@s',
-    paddingVertical: '10@vs',
-  },
-  starRow: {
-    flexDirection: 'row',
-    marginBottom: '6@vs',
-  },
-  rateText: {
-    fontSize: '12@ms',
-    color: COLORS.black,
-    fontWeight: '500',
   },
   billTitle: {
     fontSize: '14@ms',
@@ -581,6 +756,25 @@ const styles = ScaledSheet.create({
     color: COLORS.primary,
     textAlign: 'center',
   },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accentYellow,
+    borderRadius: '6@s',
+    paddingVertical: '8@vs',
+    paddingHorizontal: '12@s',
+    marginTop: '8@vs',
+    gap: '6@s',
+  },
+  reviewIcon: {
+    marginRight: '2@s',
+  },
+  reviewButtonText: {
+    fontSize: '12@ms',
+    fontWeight: '600',
+    color: COLORS.white,
+  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -612,5 +806,118 @@ const styles = ScaledSheet.create({
   loaderText: {
     fontSize: '13@ms',
     color: COLORS.textDark,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: '20@s',
+    borderTopRightRadius: '20@s',
+    paddingHorizontal: '20@s',
+    paddingTop: '20@vs',
+    paddingBottom: '30@vs',
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20@vs',
+  },
+  modalTitle: {
+    fontSize: '18@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+  },
+  modalCloseButton: {
+    padding: '4@s',
+  },
+  modalProductInfo: {
+    marginBottom: '20@vs',
+    paddingBottom: '16@vs',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray825,
+  },
+  modalProductName: {
+    fontSize: '16@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: '4@vs',
+  },
+  modalProductVendor: {
+    fontSize: '13@ms',
+    color: COLORS.textAsh,
+  },
+  ratingContainer: {
+    marginBottom: '20@vs',
+  },
+  ratingLabel: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: '12@vs',
+  },
+  starContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: '8@s',
+  },
+  starButton: {
+    padding: '4@s',
+  },
+  reviewInputContainer: {
+    marginBottom: '24@vs',
+  },
+  reviewInputLabel: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: '8@vs',
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: COLORS.gray850,
+    borderRadius: '8@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '10@vs',
+    fontSize: '14@ms',
+    color: COLORS.black,
+    minHeight: '120@vs',
+    backgroundColor: COLORS.white,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: '12@s',
+  },
+  modalButton: {
+    flex: 1,
+    borderRadius: '8@s',
+    paddingVertical: '12@vs',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: COLORS.gray900,
+    borderWidth: 1,
+    borderColor: COLORS.gray850,
+  },
+  modalCancelButtonText: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  modalSubmitButton: {
+    backgroundColor: COLORS.primary,
+  },
+  modalSubmitButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalSubmitButtonText: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

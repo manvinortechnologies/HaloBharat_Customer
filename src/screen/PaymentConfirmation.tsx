@@ -154,12 +154,12 @@ const PaymentConfirmation = () => {
   };
 
   const handleContinueShopping = () => {
-    navigation.navigate('MainTab');
+    navigation.replace('MainTab');
   };
 
   const handleProductPress = (product: OrderedProduct) => {
     if (product.productId) {
-      navigation.navigate('ProductDetail', { productId: product.productId });
+      navigation.replace('ProductDetail', { productId: product.productId });
     }
   };
 

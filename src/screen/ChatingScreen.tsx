@@ -25,6 +25,7 @@ import {
 } from 'react-native-size-matters';
 import { GiftedChat, IMessage } from 'react-native-gifted-chat';
 import { getSupportTicketById, sendTicketMessage } from '../api/support';
+import Toast from 'react-native-toast-message';
 
 const ChatingScreen = () => {
   const route =
@@ -96,7 +97,11 @@ const ChatingScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      Alert.alert('Error', 'Failed to load messages');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load messages',
+      });
     } finally {
       setLoading(false);
     }
@@ -106,7 +111,11 @@ const ChatingScreen = () => {
   const onSend = useCallback(
     async (messages = []) => {
       if (!ticketData?.id) {
-        Alert.alert('Error', 'Ticket ID not found. Cannot send message.');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Ticket ID not found. Cannot send message.',
+        });
         return;
       }
 
@@ -144,11 +153,15 @@ const ChatingScreen = () => {
         setMessages(previousMessages =>
           previousMessages.filter((msg: any) => msg._id !== newMessage._id),
         );
-        Alert.alert(
-          'Error',
-          error?.response?.data?.message ||
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2:
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            error?.message ||
             'Failed to send message. Please try again.',
-        );
+        });
       }
     },
     [ticketData?.id],

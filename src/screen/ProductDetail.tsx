@@ -25,13 +25,14 @@ import { s, ScaledSheet } from 'react-native-size-matters';
 import NormalHeader from '../component/NormalHeader';
 import ProductCard from '../component/Product';
 import COLORS from '../constants/colors';
-import { addCartItem } from '../api/cart';
 import { getProductDetail } from '../api/products';
 import {
   toggleWishlistItem,
   removeWishlistItem,
   getWishlist,
 } from '../api/wishlist';
+import Toast from 'react-native-toast-message';
+import { useCart } from '../context/CartContext';
 
 const { width } = Dimensions.get('window');
 
@@ -52,6 +53,7 @@ interface ProductDetailData {
   description: string;
   price: number | null;
   originalPrice: number | null;
+  is_bestseller: boolean;
   savings: number | null;
   rating: number | null;
   reviews: any[];
@@ -248,6 +250,13 @@ const ProductDetail = ({ navigation, route }: any) => {
   const deliveryAddress = 'Rahul Sharma, #1234, Sector 6, Mumbai';
   const productId =
     route?.params?.productId ?? route?.params?.product?.id ?? defaultProduct.id;
+  const {
+    cartItems,
+    addToCart,
+    updateQuantity,
+    getCartItemByProductId,
+    fetchCart,
+  } = useCart();
   const [productData, setProductData] = useState<ProductDetailData | null>(
     null,
   );
@@ -257,12 +266,19 @@ const ProductDetail = ({ navigation, route }: any) => {
     Array<number | { uri: string }>
   >([]);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [updatingQuantity, setUpdatingQuantity] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState<string | number | null>(
     null,
   );
   const [togglingWishlist, setTogglingWishlist] = useState(false);
   const [youMayAlsoLike, setYouMayAlsoLike] = useState<any[]>([]);
+
+  const cartItem = useMemo(
+    () => getCartItemByProductId(productId),
+    [getCartItemByProductId, productId, cartItems],
+  );
+  const isProductInCart = cartItem !== null;
 
   const normalizeProductDetail = useCallback(
     (item: any): ProductDetailData => {
@@ -288,23 +304,14 @@ const ProductDetail = ({ navigation, route }: any) => {
           'Product description not available at the moment.',
         price: priceValue,
         originalPrice: originalValue ? originalValue : null,
+        is_bestseller: item?.best_seller || false,
         savings:
           priceValue && originalValue && originalValue > priceValue
             ? originalValue - priceValue
             : null,
-        rating:
-          typeof item?.average_rating === 'number'
-            ? item.average_rating
-            : typeof item?.rating === 'number'
-            ? item.rating
-            : Number(item?.rating ?? 0),
-        reviews: Array.isArray(item?.reviews) ? item.reviews : [],
-        reviewsCount:
-          typeof item?.reviews_count === 'number'
-            ? item.reviews_count
-            : Array.isArray(item?.reviews)
-            ? item.reviews.length
-            : 0,
+        rating: item.average_rating || 0,
+        reviews: item.reviews || [],
+        reviewsCount: item.reviews_count || item.reviews.length || 0,
         images: imageList as string[],
         vendorName: item?.business?.name ?? null,
         vendorLogo: item?.business?.logo ?? null,
@@ -359,11 +366,9 @@ const ProductDetail = ({ navigation, route }: any) => {
     if (!productId) return;
     try {
       const wishlist = await getWishlist();
-      const wishlistArray = Array.isArray(wishlist) ? wishlist : [];
+      const wishlistArray = wishlist?.results ?? [];
       const wishlistItem = wishlistArray.find(
-        (item: any) =>
-          String(item?.product ?? item?.product_id ?? item?.id) ===
-          String(productId),
+        (item: any) => String(item?.product) === String(productId),
       );
       if (wishlistItem) {
         setIsInWishlist(true);
@@ -387,7 +392,11 @@ const ProductDetail = ({ navigation, route }: any) => {
   const handleToggleWishlist = async () => {
     const selectedProductId = productData?.id ?? productId;
     if (!selectedProductId) {
-      Alert.alert('Unable to update wishlist', 'Missing product identifier.');
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to update wishlist',
+        text2: 'Missing product identifier.',
+      });
       return;
     }
     try {
@@ -405,44 +414,81 @@ const ProductDetail = ({ navigation, route }: any) => {
         await checkWishlistStatus();
       }
     } catch (error: any) {
-      Alert.alert(
-        'Wishlist update failed',
-        error?.message || 'Unable to update wishlist.',
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Wishlist update failed',
+        text2: error?.message || 'Unable to update wishlist.',
+      });
     } finally {
       setTogglingWishlist(false);
     }
   };
 
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
+
   const handleAddToCart = async () => {
     const selectedProductId = productData?.id ?? productId;
     if (!selectedProductId) {
-      Alert.alert('Unable to add to cart', 'Missing product identifier.');
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to add to cart',
+        text2: 'Missing product identifier.',
+      });
       return;
     }
     try {
       setAddingToCart(true);
-      await addCartItem(
-        selectedProductId,
-        productData?.min_order_quantity ?? 1,
-      );
-      Alert.alert('Added to cart', 'Product added to your cart.', [
-        { text: 'View Cart', onPress: () => navigation.navigate('MyCart') },
-        { text: 'OK' },
-      ]);
+      await addToCart(selectedProductId, productData?.min_order_quantity ?? 1);
+      Toast.show({
+        type: 'success',
+        text1: 'Added to cart',
+        text2: 'Product added to your cart.',
+      });
     } catch (error: any) {
-      Alert.alert(
-        'Add to cart failed',
-        error?.message || 'Unable to add this product to cart.',
-      );
+      // Error is already handled in context
     } finally {
       setAddingToCart(false);
     }
   };
 
+  const handleDecreaseQuantity = async () => {
+    if (!cartItem) return;
+    const newQuantity = cartItem.quantity - 1;
+    if (newQuantity >= cartItem.minimumQuantity) {
+      try {
+        setUpdatingQuantity(true);
+        await updateQuantity(cartItem, newQuantity);
+      } catch (error) {
+        // Error is already handled in context
+      } finally {
+        setUpdatingQuantity(false);
+      }
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Quantity',
+        text2: `Minimum quantity is ${cartItem.minimumQuantity}`,
+      });
+    }
+  };
+
+  const handleIncreaseQuantity = async () => {
+    if (!cartItem) return;
+    try {
+      setUpdatingQuantity(true);
+      await updateQuantity(cartItem, cartItem.quantity + 1);
+    } catch (error) {
+      // Error is already handled in context
+    } finally {
+      setUpdatingQuantity(false);
+    }
+  };
+
   const activeProductName = productData?.name ?? defaultProduct.name;
   const activePrice = productData?.price ?? null;
-  const activeOriginalPrice = productData?.originalPrice ?? null;
+  const activeOriginalPrice = productData?.originalPrice || 0;
   const activeSavings = productData?.savings ?? null;
   const activeDescription =
     productData?.description ??
@@ -533,13 +579,15 @@ const ProductDetail = ({ navigation, route }: any) => {
             <View
               style={[styles.badge, { backgroundColor: COLORS.accentBronze }]}
             >
-              <Text style={styles.badgeText}>Bestsellers</Text>
+              {productData?.is_bestseller && (
+                <Text style={styles.badgeText}>Bestsellers</Text>
+              )}
             </View>
-            <View
+            {/* <View
               style={[styles.badge, { backgroundColor: COLORS.primaryDeep }]}
             >
               <Text style={styles.badgeText}>22% Off</Text>
-            </View>
+            </View> */}
           </View>
 
           {/* Right Bottom Icons */}
@@ -585,17 +633,16 @@ const ProductDetail = ({ navigation, route }: any) => {
           <View style={styles.titleRow}>
             <Text style={styles.productName}>{activeProductName}</Text>
             <View>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              >
                 <Text style={styles.discountedPrice}>
                   {formatCurrency(activePrice)}
                 </Text>
-                {activeOriginalPrice &&
-                activePrice &&
-                activeOriginalPrice > activePrice ? (
-                  <Text style={styles.originalPrice}>
-                    Rs {activeOriginalPrice}
-                  </Text>
-                ) : null}
+
+                <Text style={styles.originalPrice}>
+                  Rs {activeOriginalPrice}
+                </Text>
               </View>
               {activeSavings ? (
                 <View style={styles.saveBox}>
@@ -616,14 +663,14 @@ const ProductDetail = ({ navigation, route }: any) => {
               </Text>
             </View>
 
-            <LinearGradient
+            {/* <LinearGradient
               colors={[COLORS.accentBronzeTransparent, COLORS.skyBlue]}
               style={styles.cashbackContainer}
             >
               <Text style={styles.cashbackText}>
                 Buy this and get 10% cashback on another purchase
               </Text>
-            </LinearGradient>
+            </LinearGradient> */}
           </View>
           <Text style={styles.salesText}>{activeSubtitle}</Text>
 
@@ -864,20 +911,77 @@ const ProductDetail = ({ navigation, route }: any) => {
 
       {/* Bottom Fixed Buttons */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={[
-            styles.addToCartButton,
-            addingToCart && styles.addToCartButtonDisabled,
-          ]}
-          onPress={handleAddToCart}
-          disabled={addingToCart || detailLoading}
-        >
-          {addingToCart || (detailLoading && !productData) ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <Text style={styles.addToCartText}>Add to Cart</Text>
-          )}
-        </TouchableOpacity>
+        {isProductInCart ? (
+          <View style={styles.bottomContainerRow}>
+            <TouchableOpacity
+              style={styles.myCartButton}
+              onPress={() => navigation.navigate('MyCart')}
+            >
+              <Icon name="bag-outline" size={s(20)} color={COLORS.white} />
+              <Text style={styles.myCartText}>My Cart</Text>
+            </TouchableOpacity>
+            <View style={styles.quantityControlsContainer}>
+              <View style={styles.quantityControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    cartItem &&
+                      cartItem.quantity <= cartItem.minimumQuantity &&
+                      styles.quantityButtonDisabled,
+                  ]}
+                  onPress={handleDecreaseQuantity}
+                  disabled={
+                    updatingQuantity ||
+                    (cartItem && cartItem.quantity <= cartItem.minimumQuantity)
+                  }
+                >
+                  <Ion
+                    name="remove"
+                    size={s(16)}
+                    color={
+                      cartItem && cartItem.quantity <= cartItem.minimumQuantity
+                        ? COLORS.gray700
+                        : COLORS.black
+                    }
+                  />
+                </TouchableOpacity>
+                {updatingQuantity ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={COLORS.primary}
+                    style={styles.quantityLoader}
+                  />
+                ) : (
+                  <Text style={styles.quantityText}>
+                    {cartItem?.quantity ?? 0}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={handleIncreaseQuantity}
+                  disabled={updatingQuantity}
+                >
+                  <Ion name="add" size={s(16)} color={COLORS.black} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.addToCartButton,
+              addingToCart && styles.addToCartButtonDisabled,
+            ]}
+            onPress={handleAddToCart}
+            disabled={addingToCart || detailLoading}
+          >
+            {addingToCart || (detailLoading && !productData) ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.addToCartText}>Add to Cart</Text>
+            )}
+          </TouchableOpacity>
+        )}
         <View style={styles.deliveryBox}>
           <Text style={styles.deliveryText}>Delivery in 3 days</Text>
         </View>
@@ -1237,6 +1341,72 @@ const styles = ScaledSheet.create({
     color: COLORS.white,
     fontSize: '11@ms',
     fontWeight: '600',
+  },
+  quantityControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // marginBottom: '10@vs',
+    gap: '12@s',
+  },
+  quantityLabel: {
+    fontSize: '14@ms',
+    color: COLORS.black,
+    fontWeight: '600',
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '12@s',
+    borderWidth: 1,
+    borderColor: COLORS.gray850,
+    borderRadius: '8@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '6@vs',
+  },
+  quantityButton: {
+    width: '28@s',
+    height: '28@s',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '6@s',
+    backgroundColor: COLORS.gray900,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: COLORS.gray850,
+  },
+  quantityText: {
+    fontSize: '16@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    minWidth: '30@s',
+    textAlign: 'center',
+  },
+  quantityLoader: {
+    marginHorizontal: '8@s',
+  },
+  bottomContainerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: '10@vs',
+  },
+  myCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryDeep,
+    borderRadius: '8@s',
+    paddingVertical: '10@vs',
+    paddingHorizontal: '20@s',
+    // marginBottom: '5@vs',
+    gap: '8@s',
+  },
+  myCartText: {
+    color: COLORS.white,
+    fontSize: '14@ms',
+    fontWeight: '700',
   },
   errorBanner: {
     flexDirection: 'row',

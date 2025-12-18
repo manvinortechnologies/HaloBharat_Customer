@@ -38,7 +38,7 @@ const Header = ({
 
         <View style={styles.iconContainer}>
           {/* Notification Button */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => navigation.navigate('Notification')}
             activeOpacity={0.7}
           >
@@ -48,7 +48,7 @@ const Header = ({
               color={COLORS.black}
               style={styles.icon}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Wishlist Button */}
           <TouchableOpacity

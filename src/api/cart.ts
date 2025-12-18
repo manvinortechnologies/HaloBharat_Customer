@@ -29,3 +29,17 @@ export const removeCartItem = async (cartItemId: string | number) => {
   );
   return response.data;
 };
+
+export const updateCartItem = async (
+  cartItemId: string | number,
+  payload: {
+    product: string;
+    quantity: number;
+  },
+) => {
+  const response = await apiClient.patch(
+    endpoints.cart.update(cartItemId),
+    payload,
+  );
+  return response.data;
+};

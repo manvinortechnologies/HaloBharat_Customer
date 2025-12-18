@@ -11,3 +11,17 @@ export const getProductReviews = async (
   return response.data;
 };
 
+export const createReview = async (
+  productId: string | number,
+  reviewData: {
+    product: string;
+    rating: number;
+    review_text: string;
+  },
+) => {
+  const response = await apiClient.post(
+    endpoints.review.create(productId),
+    reviewData,
+  );
+  return response.data;
+};

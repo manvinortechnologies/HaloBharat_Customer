@@ -17,15 +17,22 @@ import COLORS from '../constants/colors';
 // 👉 Import your screens
 import HomeScreen from '../screen/Home';
 import More from '../screen/More';
-import Account from '../screen/Account';
 import Categories from '../component/Categories';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import MyOrders from '../screen/MyOrders';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getProfile } from '../api/profile';
 
 interface TabItem {
   id: string;
   label: string;
   icon: string;
-  iconFamily: 'MaterialIcons' | 'MaterialCommunityIcons' | 'Custom';
+  iconFamily:
+    | 'MaterialIcons'
+    | 'MaterialCommunityIcons'
+    | 'Ionicons'
+    | 'Custom';
 }
 
 type MainTabParamList = {
@@ -43,6 +50,14 @@ const MainTabScreen: React.FC = () => {
     }
   }, [route.params?.screenName]);
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const data = await getProfile();
+      await AsyncStorage.setItem('profile', JSON.stringify(data));
+    };
+    fetchProfile();
+  }, []);
+
   const tabItems: TabItem[] = [
     {
       id: 'HOME',
@@ -51,10 +66,10 @@ const MainTabScreen: React.FC = () => {
       iconFamily: 'MaterialIcons',
     },
     {
-      id: 'MORE',
-      label: 'More',
-      icon: 'dots-horizontal',
-      iconFamily: 'MaterialCommunityIcons',
+      id: 'ORDERS',
+      label: 'Orders',
+      icon: 'bag-outline',
+      iconFamily: 'Ionicons',
     },
     {
       id: 'CATEGORY',
@@ -74,12 +89,12 @@ const MainTabScreen: React.FC = () => {
     switch (activeTab) {
       case 'HOME':
         return <HomeScreen />;
-      case 'MORE':
-        return <More />;
+      case 'ORDERS':
+        return <MyOrders />;
       case 'CATEGORY':
         return <Categories />;
       case 'ACCOUNT':
-        return <Account />;
+        return <More />;
       default:
         return <HomeScreen />;
     }
@@ -98,7 +113,9 @@ const MainTabScreen: React.FC = () => {
         />
       );
     }
-
+    if (item.iconFamily === 'Ionicons') {
+      return <Ionicons name={item.icon} size={iconSize} color={iconColor} />;
+    }
     if (item.iconFamily === 'MaterialIcons') {
       return (
         <MaterialIcons name={item.icon} size={iconSize} color={iconColor} />

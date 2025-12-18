@@ -658,13 +658,9 @@ const Home = () => {
                     )}
                   </TouchableOpacity>
                   <View style={styles.priceContainer}>
-                    {item.originalPrice &&
-                    item.discountedPrice &&
-                    item.originalPrice > item.discountedPrice ? (
-                      <Text style={styles.originalPrice}>
-                        {formatPrice(item.originalPrice)}
-                      </Text>
-                    ) : null}
+                    <Text style={styles.originalPrice}>
+                      {formatPrice(item.originalPrice)}
+                    </Text>
                     <Text style={styles.discountedPrice}>
                       {formatPrice(item.discountedPrice) ||
                         formatPrice(item.originalPrice) ||
@@ -733,8 +729,8 @@ const styles = ScaledSheet.create({
     marginRight: '5@s',
   },
   categoryImage: {
-    width: '80@s',
-    height: '80@s',
+    width: '60@s',
+    height: '60@s',
     borderRadius: '60@s',
     marginBottom: '2@vs',
     justifyContent: 'center',
@@ -801,8 +797,8 @@ const styles = ScaledSheet.create({
     // borderRadius: '12@s',
   },
   brandImageContainer: {
-    width: '140@s',
-    height: '140@vs',
+    width: '120@s',
+    height: '120@s',
     borderRadius: '12@s',
     overflow: 'hidden', // ensures image and overlay stay within rounded corners
     borderWidth: 1,

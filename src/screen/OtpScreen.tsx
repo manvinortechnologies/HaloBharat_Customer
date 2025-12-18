@@ -110,7 +110,8 @@ const OtpScreen = ({ navigation, route }: any) => {
       setError(
         err?.code === 'auth/invalid-verification-code'
           ? 'Invalid or expired code. Please try again.'
-          : err?.message || 'Verification failed. Please retry.',
+          : error?.response?.data?.error ||
+              'Verification failed. Please retry.',
       );
       resetOtpInputs();
     } finally {

@@ -15,6 +15,7 @@ import NormalHeader from '../component/NormalHeader';
 import COLORS from '../constants/colors';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { createAddress, updateAddress } from '../api/addresses';
+import Toast from 'react-native-toast-message';
 
 interface RouteParams {
   address?: {
@@ -102,17 +103,22 @@ const AddAddress = () => {
 
   const handleSaveAddress = async () => {
     if (!isFormValid()) {
-      Alert.alert('Validation Error', 'Please fill all required fields');
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid 10-digit phone number',
+      });
       return;
     }
 
     // Validate phone number
     const phoneNumber = formData.phoneNumber.replace('+91 ', '').trim();
     if (phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
-      Alert.alert(
-        'Validation Error',
-        'Please enter a valid 10-digit phone number',
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid 10-digit phone number',
+      });
       return;
     }
 
@@ -144,20 +150,20 @@ const AddAddress = () => {
 
       if (isEditMode && addressId) {
         await updateAddress(addressId, payload);
-        Alert.alert('Success', 'Address updated successfully', [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Address updated successfully',
+        });
+        navigation.goBack();
       } else {
         await createAddress(payload);
-        Alert.alert('Success', 'Address saved successfully', [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Address saved successfully',
+        });
+        navigation.goBack();
       }
     } catch (error: any) {
       const errorMessage =
@@ -165,7 +171,11 @@ const AddAddress = () => {
         error?.response?.data?.error ||
         error?.message ||
         'Failed to save address. Please try again.';
-      Alert.alert('Error', errorMessage);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: errorMessage,
+      });
     } finally {
       setLoading(false);
     }
