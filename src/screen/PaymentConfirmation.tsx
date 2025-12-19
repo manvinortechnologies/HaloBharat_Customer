@@ -8,11 +8,12 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScaledSheet } from 'react-native-size-matters';
+import { s, ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
 import COLORS from '../constants/colors';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 interface OrderedProduct {
   id: string;
@@ -224,15 +225,21 @@ const PaymentConfirmation = () => {
           {orderedProducts.map(product => (
             <View key={product.id}>
               <View style={styles.productCard}>
-                <Image
-                  source={
-                    product.imageUrl
-                      ? { uri: product.imageUrl }
-                      : fallbackProductImage
-                  }
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.productImageContainer}>
+                  {product.imageUrl ? (
+                    <Image
+                      source={{ uri: product.imageUrl }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <MaterialIcons
+                      name="image"
+                      size={s(40)}
+                      color={COLORS.primary}
+                    />
+                  )}
+                </View>
                 <View style={styles.productInfo}>
                   <View style={styles.productHeader}>
                     <Text
@@ -300,16 +307,21 @@ const PaymentConfirmation = () => {
                     </Text>
                   </View>
                 ) : null}
-
-                <Image
-                  source={
-                    product.imageUrl
-                      ? { uri: product.imageUrl }
-                      : fallbackProductImage
-                  }
-                  style={styles.recommendedImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.recommendedImageContainer}>
+                  {product.imageUrl ? (
+                    <Image
+                      source={{ uri: product.imageUrl }}
+                      style={styles.recommendedImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <MaterialIcons
+                      name="image"
+                      size={s(80)}
+                      color={COLORS.primary}
+                    />
+                  )}
+                </View>
 
                 <View style={styles.recommendedInfo}>
                   <Text style={styles.recommendedName} numberOfLines={2}>
@@ -460,11 +472,17 @@ const styles = ScaledSheet.create({
   productCard: {
     flexDirection: 'row',
   },
-  productImage: {
+  productImageContainer: {
     width: '80@s',
     height: '100@s',
-    borderRadius: '8@s',
     backgroundColor: COLORS.gray1025,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: '8@s',
   },
   productInfo: {
     flex: 1,
@@ -595,10 +613,16 @@ const styles = ScaledSheet.create({
     fontSize: '11@ms',
     fontWeight: '600',
   },
-  recommendedImage: {
+  recommendedImageContainer: {
     width: '100%',
     height: '140@vs',
     backgroundColor: COLORS.gray1025,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recommendedImage: {
+    width: '100%',
+    height: '100%',
   },
   favoriteButton: {
     position: 'absolute',
