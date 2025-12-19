@@ -17,7 +17,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScaledSheet, ms } from 'react-native-size-matters';
+import { ScaledSheet, ms, s } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NormalHeader from '../component/NormalHeader';
 import COLORS from '../constants/colors';
@@ -124,7 +124,7 @@ const AssignProject = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+  }, []);
 
   const openExistingProjectModal = useCallback(
     (orderItemId: string) => {
@@ -177,10 +177,10 @@ const AssignProject = () => {
   }, [
     initialItemId,
     initialAction,
-    openExistingProjectModal,
-    openNewProjectModal,
-    projects,
-    projectsLoading,
+    // openExistingProjectModal,
+    // openNewProjectModal,
+    // projects,
+    // projectsLoading,
   ]);
 
   const handleAssignToExistingProject = useCallback(async () => {
@@ -230,6 +230,11 @@ const AssignProject = () => {
       setProjectName('');
       closeNewProjectModal();
       await fetchProjects();
+      Toast.show({
+        type: 'success',
+        text1: 'Project Created',
+        text2: 'Project has been created successfully.',
+      });
       // if (orderItemIds?.length && newProjectId) {
       //   await assignProjectItems(newProjectId, orderItemIds);
       //   Alert.alert('Success', 'Item assigned to the new project.');
@@ -283,11 +288,17 @@ const AssignProject = () => {
         ) : (
           products.map(product => (
             <View key={product.id} style={styles.productCard}>
-              <Image
-                source={{ uri: product.imageUrl }}
-                style={styles.productImage}
-                resizeMode="cover"
-              />
+              <View style={styles.productImageContainer}>
+                {product.imageUrl ? (
+                  <Image
+                    source={{ uri: product.imageUrl }}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Icon name="image" size={s(40)} color={COLORS.primary} />
+                )}
+              </View>
 
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{product.name}</Text>
@@ -493,11 +504,19 @@ const styles = ScaledSheet.create({
     marginBottom: '16@vs',
     elevation: 2,
   },
-  productImage: {
+  productImageContainer: {
     width: '80@s',
     height: '80@s',
     borderRadius: '8@s',
     backgroundColor: COLORS.gray1025,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: '8@s',
+    resizeMode: 'cover',
   },
   productInfo: { flex: 1, marginLeft: '8@s' },
   productName: {
@@ -550,6 +569,7 @@ const styles = ScaledSheet.create({
     color: COLORS.textDark,
     marginBottom: '12@vs',
     fontWeight: '600',
+    marginHorizontal: '16@s',
   },
   emptyState: {
     paddingVertical: '40@vs',

@@ -24,7 +24,6 @@ import { s, ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import NormalHeader from '../component/NormalHeader';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import COLORS from '../constants/colors';
@@ -32,77 +31,10 @@ import { getVendorDetail, getVendorBanners } from '../api/vendors';
 import { getCategories } from '../api/categories';
 import { getProducts, getBestsellers } from '../api/products';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import SimpleCarousel from '../component/SimpleCarousel';
+import ProductGridCard from '../component/ProductGridCard';
 
 const { width: screenWidth } = Dimensions.get('window');
-
-// Simple custom carousel component
-const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (data.length <= 1) {
-      setCurrentIndex(0);
-      return;
-    }
-    const timer = setInterval(() => {
-      const nextIndex = currentIndex === data.length - 1 ? 0 : currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollRef.current?.scrollTo({
-        x: nextIndex * screenWidth,
-        animated: true,
-      });
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, data.length]);
-
-  if (data.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.carouselContainer}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={event => {
-          const newIndex = Math.round(
-            event.nativeEvent.contentOffset.x / screenWidth,
-          );
-          setCurrentIndex(newIndex);
-        }}
-      >
-        {data.map((banner, index) => (
-          <View key={index} style={styles.bannerWrapper}>
-            {banner.imageUrl ? (
-              <Image
-                source={{ uri: banner.imageUrl }}
-                style={styles.bannerImage}
-              />
-            ) : (
-              <MaterialIcons name="image" size={s(40)} color={COLORS.primary} />
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.indicatorContainer}>
-        {data.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.indicator,
-              index === currentIndex && styles.activeIndicator,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-};
 
 interface CategoryItem {
   id: string;
@@ -195,8 +127,8 @@ const VendorDetail = () => {
   const sidebarCategories = useMemo(() => {
     const staticCategories = [
       { id: 'home', name: 'Home' },
-      { id: 'deals', name: 'Deals' },
-      { id: 'bestsellers', name: 'Bestsellers' },
+      // { id: 'deals', name: 'Deals' },
+      // { id: 'bestsellers', name: 'Bestsellers' },
     ];
     return [...staticCategories, ...categories];
   }, [categories]);
@@ -253,9 +185,7 @@ const VendorDetail = () => {
       rating: item.average_rating,
       reviews: item.reviews_count || item.reviews.length || 0,
       soldCount: item.sold_count,
-      deliveryDays: item?.delivery_days
-        ? `Delivery in ${item.delivery_days} days`
-        : 'Delivery in 3 days',
+      deliveryDays: item?.delivery_days,
       isBestseller: item?.best_seller || false,
     };
   }, []);
@@ -420,98 +350,7 @@ const VendorDetail = () => {
     const isLeftColumn = index % 2 === 0;
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.productCard,
-          isLeftColumn ? styles.leftCard : styles.rightCard,
-        ]}
-        onPress={() =>
-          navigation.navigate('ProductDetail', { product: { id: item.id } })
-        }
-      >
-        {/* Discount Badge */}
-        {item.discount ? (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{item.discount}</Text>
-          </View>
-        ) : null}
-
-        {/* Bestseller Badge */}
-        {item.isBestseller ? (
-          <View style={styles.bestsellerBadge}>
-            <Text style={styles.bestsellerText}>Bestseller</Text>
-          </View>
-        ) : null}
-
-        {/* Product Image */}
-        {item.image ? (
-          <Image
-            source={item.image ? { uri: item.image } : fallbackProductImage}
-            style={styles.productImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.productImage}>
-            <Ionicons
-              name="image-outline"
-              size={s(80)}
-              color={COLORS.primary}
-            />
-          </View>
-        )}
-
-        {/* Favorite Icon */}
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Icon name="favorite-border" size={20} color={COLORS.white} />
-        </TouchableOpacity>
-
-        {/* Product Info */}
-        <View style={styles.productInfo}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          {item.description ? (
-            <Text style={styles.productDescription} numberOfLines={1}>
-              {item.description}
-            </Text>
-          ) : null}
-
-          {/* Delivery Badge */}
-          <View style={styles.deliveryBadge}>
-            <Text style={styles.deliveryText}>
-              {item.deliveryDays ?? 'Delivery in 3 days'}
-            </Text>
-          </View>
-
-          {/* Price Section */}
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>
-              {item.price ? `Rs ${item.price}` : 'Price unavailable'}
-            </Text>
-
-            <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
-          </View>
-
-          {/* Rating and Sold Count */}
-          {item.rating != null && item.reviews != null ? (
-            <View style={styles.ratingRow}>
-              <View style={styles.ratingBadge}>
-                <FontAwesome name="star" size={12} color={COLORS.accentGold} />
-                <Text style={styles.ratingText}>
-                  {item.rating ? item.rating.toFixed(1) : '--'}
-                </Text>
-              </View>
-              <Text style={styles.reviewText}>
-                {item.reviews ? `(${item.reviews})` : ''}
-              </Text>
-            </View>
-          ) : null}
-
-          {item.soldCount ? (
-            <Text style={styles.soldText}>{item.soldCount}</Text>
-          ) : null}
-        </View>
-      </TouchableOpacity>
+      <ProductGridCard item={item} index={index} isLeftColumn={isLeftColumn} />
     );
   };
 
@@ -523,12 +362,10 @@ const VendorDetail = () => {
     <SafeAreaView style={styles.container}>
       {/* Header with Search */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setSidebarVisible(true)}
-        >
-          <Icon name="menu" size={24} color={COLORS.black} />
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={s(20)} color={COLORS.black} />
         </TouchableOpacity>
+
         <View style={styles.searchBar}>
           <Ionicons
             name="search-outline"
@@ -551,134 +388,142 @@ const VendorDetail = () => {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setSidebarVisible(true)}
+        >
+          <Icon name="menu" size={24} color={COLORS.black} />
+        </TouchableOpacity>
       </View>
 
-      {/* Vendor Info Section */}
-      {vendorData && (
-        <View style={styles.vendorInfoSection}>
-          <View style={styles.vendorHeader}>
-            {vendorData.logo ? (
-              <Image
-                source={
-                  vendorData.logo
-                    ? { uri: vendorData.logo }
-                    : fallbackVendorImage
-                }
-                style={styles.vendorLogo}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.vendorLogo}>
-                <Ionicons
-                  name="storefront"
-                  size={s(30)}
-                  color={COLORS.primary}
+      <ScrollView>
+        {/* Vendor Info Section */}
+        {vendorData && (
+          <View style={styles.vendorInfoSection}>
+            <View style={styles.vendorHeader}>
+              {vendorData.logo ? (
+                <Image
+                  source={
+                    vendorData.logo
+                      ? { uri: vendorData.logo }
+                      : fallbackVendorImage
+                  }
+                  style={styles.vendorLogo}
+                  resizeMode="contain"
                 />
-              </View>
-            )}
-            <View style={styles.vendorTextContainer}>
-              <Text style={styles.vendorName}>{vendorData.name}</Text>
-              {vendorData.description ? (
-                <Text style={styles.vendorDescription} numberOfLines={2}>
-                  {vendorData.description}
-                </Text>
-              ) : null}
-              <View style={styles.vendorRatingRow}>
-                {vendorData.average_rating != null ? (
-                  <>
-                    <FontAwesome
-                      name="star"
-                      size={14}
-                      color={COLORS.accentAmber}
-                    />
-                    <Text style={styles.vendorRatingText}>
-                      {vendorData.average_rating.toFixed(1)}
-                    </Text>
-                    {vendorData.reviews_count != null ? (
-                      <Text style={styles.vendorReviewText}>
-                        ({vendorData.reviews_count})
-                      </Text>
-                    ) : null}
-                  </>
+              ) : (
+                <View style={styles.vendorLogo}>
+                  <Ionicons
+                    name="storefront"
+                    size={s(30)}
+                    color={COLORS.primary}
+                  />
+                </View>
+              )}
+              <View style={styles.vendorTextContainer}>
+                <Text style={styles.vendorName}>{vendorData.name}</Text>
+                {vendorData.description ? (
+                  <Text style={styles.vendorDescription} numberOfLines={2}>
+                    {vendorData.description}
+                  </Text>
                 ) : null}
-                {/* <Text style={styles.vendorSoldText}>100+ bought past week</Text> */}
+                <View style={styles.vendorRatingRow}>
+                  {vendorData.average_rating != null ? (
+                    <>
+                      <FontAwesome
+                        name="star"
+                        size={14}
+                        color={COLORS.accentAmber}
+                      />
+                      <Text style={styles.vendorRatingText}>
+                        {vendorData.average_rating.toFixed(1)}
+                      </Text>
+                      {vendorData.reviews_count != null ? (
+                        <Text style={styles.vendorReviewText}>
+                          ({vendorData.reviews_count})
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {/* <Text style={styles.vendorSoldText}>100+ bought past week</Text> */}
+                </View>
               </View>
-            </View>
-            {/* <TouchableOpacity style={styles.shareButton}>
+              {/* <TouchableOpacity style={styles.shareButton}>
               <Icon name="share" size={20} color={COLORS.black} />
             </TouchableOpacity> */}
-          </View>
-        </View>
-      )}
-
-      {/* Store Type Banners */}
-      {bannersLoading && storeBanners.length === 0 ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
-          <Text style={styles.loaderText}>Loading banners...</Text>
-        </View>
-      ) : (
-        <SimpleCarousel data={storeBanners} />
-      )}
-
-      {/* Category Title */}
-      <View style={styles.categoryTitleContainer}>
-        <Text style={styles.categoryTitle}>
-          {selectedCategoryName.toUpperCase()}
-        </Text>
-      </View>
-
-      {/* Error Banner */}
-      {error ? (
-        <TouchableOpacity
-          style={styles.errorBanner}
-          onPress={() => fetchProducts()}
-        >
-          <Icon name="error-outline" size={18} color={COLORS.accentRed} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to retry</Text>
-          </View>
-        </TouchableOpacity>
-      ) : null}
-
-      {/* Loading State */}
-      {loading && products.length === 0 ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
-          <Text style={styles.loaderText}>Loading products...</Text>
-        </View>
-      ) : null}
-
-      {/* Product Grid */}
-      <FlatList
-        data={products}
-        renderItem={renderProductCard}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.productList}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchProducts('refresh')}
-            tintColor={COLORS.primary}
-          />
-        }
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyContainer}>
-              <Icon name="category" size={80} color={COLORS.gray700} />
-              <Text style={styles.emptyTitle}>No products found</Text>
-              <Text style={styles.emptySubtitle}>
-                {selectedCategory
-                  ? `No products found in ${selectedCategoryName}.`
-                  : 'No products available for this vendor.'}
-              </Text>
             </View>
-          ) : null
-        }
-      />
+          </View>
+        )}
+
+        {/* Store Type Banners */}
+        {bannersLoading && storeBanners.length === 0 ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.loaderText}>Loading banners...</Text>
+          </View>
+        ) : (
+          <SimpleCarousel data={storeBanners} />
+        )}
+
+        {/* Category Title */}
+        <View style={styles.categoryTitleContainer}>
+          <Text style={styles.categoryTitle}>
+            {selectedCategoryName.toUpperCase()}
+          </Text>
+        </View>
+
+        {/* Error Banner */}
+        {error ? (
+          <TouchableOpacity
+            style={styles.errorBanner}
+            onPress={() => fetchProducts()}
+          >
+            <Icon name="error-outline" size={18} color={COLORS.accentRed} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Loading State */}
+        {loading && products.length === 0 ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.loaderText}>Loading products...</Text>
+          </View>
+        ) : null}
+
+        {/* Product Grid */}
+        <FlatList
+          data={products}
+          renderItem={renderProductCard}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.productList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchProducts('refresh')}
+              tintColor={COLORS.primary}
+            />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyContainer}>
+                <Icon name="category" size={80} color={COLORS.gray700} />
+                <Text style={styles.emptyTitle}>No products found</Text>
+                <Text style={styles.emptySubtitle}>
+                  {selectedCategory
+                    ? `No products found in ${selectedCategoryName}.`
+                    : 'No products available for this vendor.'}
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      </ScrollView>
 
       {/* Sidebar Modal */}
       <Modal
@@ -760,7 +605,7 @@ const styles = ScaledSheet.create({
   },
   menuButton: {
     padding: '5@s',
-    marginRight: '10@s',
+    // marginRight: '10@s',
   },
   searchBar: {
     flex: 1,
@@ -770,6 +615,7 @@ const styles = ScaledSheet.create({
     borderRadius: '8@s',
     paddingHorizontal: '12@s',
     paddingVertical: '8@vs',
+    marginLeft: '10@s',
   },
   searchIcon: {
     marginRight: '8@s',
@@ -842,37 +688,6 @@ const styles = ScaledSheet.create({
     backgroundColor: COLORS.accentRed,
     marginVertical: '10@vs',
   },
-  bannerImage: {
-    width: screenWidth - 20,
-    height: '180@vs',
-    borderRadius: '10@s',
-    resizeMode: 'contain',
-  },
-  carouselContainer: {
-    position: 'relative',
-    marginVertical: '10@vs',
-  },
-  bannerWrapper: {
-    width: screenWidth,
-    alignItems: 'center',
-  },
-  indicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'absolute',
-    bottom: '8@vs',
-    width: '100%',
-  },
-  indicator: {
-    width: '6@s',
-    height: '6@s',
-    borderRadius: '3@s',
-    backgroundColor: COLORS.gray700,
-    marginHorizontal: '3@s',
-  },
-  activeIndicator: {
-    backgroundColor: COLORS.black,
-  },
   categoryTitleContainer: {
     paddingHorizontal: '16@s',
     paddingVertical: '10@vs',
@@ -941,7 +756,7 @@ const styles = ScaledSheet.create({
   },
   productImage: {
     width: '100%',
-    height: '160@vs',
+    height: '150@s',
     backgroundColor: COLORS.gray1025,
     justifyContent: 'center',
     alignItems: 'center',

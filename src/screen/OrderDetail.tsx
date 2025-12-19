@@ -378,7 +378,7 @@ const OrderDetail = ({ navigation }: any) => {
                 </View>
               ))}
 
-              <View
+              {/* <View
                 style={[
                   styles.statusContainer,
                   status.toLowerCase().includes('delivered')
@@ -387,7 +387,7 @@ const OrderDetail = ({ navigation }: any) => {
                 ]}
               >
                 <Text style={styles.statusText}>{status}</Text>
-              </View>
+              </View> */}
             </View>
 
             <View style={styles.section}>

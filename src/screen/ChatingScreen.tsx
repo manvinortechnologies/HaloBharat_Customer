@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -26,6 +27,7 @@ import {
 import { GiftedChat, IMessage } from 'react-native-gifted-chat';
 import { getSupportTicketById, sendTicketMessage } from '../api/support';
 import Toast from 'react-native-toast-message';
+import COLORS from '../constants/colors';
 
 const ChatingScreen = () => {
   const route =
@@ -60,9 +62,7 @@ const ChatingScreen = () => {
       ? new Date(apiMessage.created_at)
       : new Date();
     // Check if message is from customer (not admin/support)
-    const isCustomer =
-      apiMessage.sender?.full_name !== 'admin' &&
-      apiMessage.sender?.role !== 'admin';
+    const isCustomer = apiMessage.sender?.role !== 'Admin';
 
     return {
       _id: apiMessage.id?.toString() || Math.random().toString(),
@@ -185,7 +185,7 @@ const ChatingScreen = () => {
           {props.currentMessage?.text}
         </Text>
         <View style={styles.timeContainer}>
-          <Text style={[styles.timeText, { color: '#000' }]}>
+          <Text style={[styles.timeText, { color: '#fff' }]}>
             {new Date(props.currentMessage?.createdAt).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
@@ -193,7 +193,7 @@ const ChatingScreen = () => {
           </Text>
           {props.position === 'right' && (
             <View style={styles.tickContainer}>
-              <Icon name="checkmark" size={12} color="#000" />
+              <Icon name="checkmark" size={12} color="#fff" />
             </View>
           )}
         </View>
@@ -226,100 +226,107 @@ const ChatingScreen = () => {
   }, [ticketData?.id]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Custom Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-        >
-          <Icon name="chevron-back" size={moderateScale(20)} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <View style={styles.statusContainer}>
-            <Text style={styles.username} numberOfLines={2}>
-              Subject:{' '}
-              <Text
-                numberOfLines={2}
-                style={{ fontSize: moderateScale(14), fontWeight: '400' }}
-              >
-                {ticketData?.message || ticketData?.subject || 'Support Agent'}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* Custom Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+          >
+            <Icon name="chevron-back" size={moderateScale(20)} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <View style={styles.statusContainer}>
+              <Text style={styles.username} numberOfLines={2}>
+                Subject:{' '}
+                <Text
+                  numberOfLines={2}
+                  style={{ fontSize: moderateScale(14), fontWeight: '400' }}
+                >
+                  {ticketData?.message ||
+                    ticketData?.subject ||
+                    'Support Agent'}
+                </Text>
               </Text>
-            </Text>
-            <Text
-              style={[
-                styles.ticketStatus,
-                { color: ticketData?.status === 'open' ? '#4CAF50' : '#999' },
-              ]}
-            >
-              {ticketData?.status}
-            </Text>
-            {/* <Text style={styles.status}>{'Support Chat'}</Text> */}
+              <Text
+                style={[
+                  styles.ticketStatus,
+                  { color: ticketData?.status === 'open' ? '#4CAF50' : '#999' },
+                ]}
+              >
+                {ticketData?.status}
+              </Text>
+              {/* <Text style={styles.status}>{'Support Chat'}</Text> */}
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* GiftedChat Interface */}
-      <GiftedChat
-        // @ts-expect-error - GiftedChat type inference issue with react-native-gifted-chat v3 alpha
-        messages={messages}
-        onSend={onSend}
-        user={currentUser}
-        renderBubble={renderBubble}
-        renderAvatar={renderAvatar}
-        // renderTime={renderTime}
-        placeholder="Type a message..."
-        alwaysShowSend
-        isLoadingEarlier={loading}
-        renderLoading={() => (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4952FB" />
-            <Text style={styles.loadingText}>Loading messages...</Text>
-          </View>
-        )}
-        // inverted={false}
-        textInputProps={{
-          multiline: true,
-          maxLength: 500,
-          placeholderTextColor: '#999',
-          style: {
-            color: '#000',
-            flex: 1,
-            paddingLeft: scale(15),
-            borderWidth: 1,
-            borderColor: '#999',
-            borderRadius: scale(20),
-            backgroundColor: '#F1F1F1',
-            marginVertical: verticalScale(5),
-            marginHorizontal: scale(10),
-          },
-        }}
-        renderSend={props => (
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !props.text?.trim() && styles.sendButtonDisabled,
-            ]}
-            onPress={() => {
-              if (props.text?.trim() && props.onSend) {
-                const message: IMessage = {
-                  _id: Math.random().toString(),
-                  text: props.text.trim(),
-                  createdAt: new Date(),
-                  user: currentUser,
-                };
-                // @ts-ignore - GiftedChat type inference issue
-                props.onSend([message], true);
-              }
-            }}
-            disabled={!props.text?.trim()}
-          >
-            <Icon name="send" size={moderateScale(18)} color="#fff" />
-          </TouchableOpacity>
-        )}
-        keyboardShouldPersistTaps="never"
-      />
-    </SafeAreaView>
+        {/* GiftedChat Interface */}
+        <GiftedChat
+          // @ts-expect-error - GiftedChat type inference issue with react-native-gifted-chat v3 alpha
+          messages={messages}
+          onSend={onSend}
+          user={currentUser}
+          renderBubble={renderBubble}
+          renderAvatar={renderAvatar}
+          // renderTime={renderTime}
+          placeholder="Type a message..."
+          alwaysShowSend
+          isLoadingEarlier={loading}
+          renderLoading={() => (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4952FB" />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </View>
+          )}
+          // inverted={false}
+          textInputProps={{
+            multiline: true,
+            maxLength: 500,
+            placeholderTextColor: '#999',
+            style: {
+              color: '#000',
+              flex: 1,
+              paddingLeft: scale(15),
+              borderWidth: 1,
+              borderColor: '#999',
+              borderRadius: scale(20),
+              backgroundColor: '#F1F1F1',
+              marginVertical: verticalScale(5),
+              marginHorizontal: scale(10),
+            },
+          }}
+          renderSend={props => (
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                !props.text?.trim() && styles.sendButtonDisabled,
+              ]}
+              onPress={() => {
+                if (props.text?.trim() && props.onSend) {
+                  const message: IMessage = {
+                    _id: Math.random().toString(),
+                    text: props.text.trim(),
+                    createdAt: new Date(),
+                    user: currentUser,
+                  };
+                  // @ts-ignore - GiftedChat type inference issue
+                  props.onSend([message], true);
+                }
+              }}
+              disabled={!props.text?.trim()}
+            >
+              <Icon name="send" size={moderateScale(18)} color="#fff" />
+            </TouchableOpacity>
+          )}
+          keyboardShouldPersistTaps="never"
+        />
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -346,7 +353,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   backBtn: {
-    backgroundColor: '#4952FB',
+    backgroundColor: COLORS.primary,
     padding: scale(6),
     borderRadius: scale(20),
     // marginBottom: verticalScale(10),
@@ -445,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
   },
   sendButton: {
-    backgroundColor: '#4952FB',
+    backgroundColor: COLORS.primary,
     // width: scale(40),
     // height: scale(40),
     padding: scale(11),
@@ -493,7 +500,7 @@ const styles = StyleSheet.create({
   },
   // GiftedChat specific styles
   leftBubble: {
-    backgroundColor: '#E0F3FF',
+    backgroundColor: COLORS.gray1050,
     borderRadius: scale(10),
     // borderBottomLeftRadius: scale(4),
     padding: scale(12),
@@ -503,7 +510,7 @@ const styles = StyleSheet.create({
   },
   rightBubble: {
     // backgroundColor: '#4952FB',
-    backgroundColor: '#F8E8FD',
+    backgroundColor: COLORS.primary,
     borderRadius: scale(10),
     // borderBottomRightRadius: scale(4),
     padding: scale(12),
@@ -517,7 +524,7 @@ const styles = StyleSheet.create({
     // lineHeight: moderateScale(10),
   },
   rightText: {
-    color: '#000',
+    color: '#fff',
     fontSize: moderateScale(14),
     // lineHeight: moderateScale(10),
   },

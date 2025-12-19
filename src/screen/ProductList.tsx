@@ -29,6 +29,7 @@ import { getBestsellers } from '../api/products';
 import { getVendorBanners } from '../api/vendors';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import SimpleCarousel from '../component/SimpleCarousel';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -52,75 +53,6 @@ interface BannerItem {
   title?: string | null;
   type?: string | null;
 }
-
-// Simple custom carousel component
-const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (data.length <= 1) {
-      setCurrentIndex(0);
-      return;
-    }
-    const timer = setInterval(() => {
-      const nextIndex = currentIndex === data.length - 1 ? 0 : currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollRef.current?.scrollTo({
-        x: nextIndex * screenWidth,
-        animated: true,
-      });
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, data.length]);
-
-  if (data.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.carouselContainer}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={event => {
-          const newIndex = Math.round(
-            event.nativeEvent.contentOffset.x / screenWidth,
-          );
-          setCurrentIndex(newIndex);
-        }}
-      >
-        {data.map((banner, index) => (
-          <View key={index} style={styles.bannerWrapper}>
-            {banner.imageUrl ? (
-              <Image
-                source={{ uri: banner.imageUrl }}
-                style={styles.bannerImage}
-              />
-            ) : (
-              <MaterialIcons name="image" size={s(40)} color={COLORS.primary} />
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.indicatorContainer}>
-        {data.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.indicator,
-              index === currentIndex && styles.activeIndicator,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-};
 
 const ProductList = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -662,37 +594,6 @@ const styles = ScaledSheet.create({
     height: '50@vs',
     backgroundColor: COLORS.accentRed,
     position: 'relative',
-  },
-  bannerImage: {
-    width: screenWidth - 20,
-    height: '180@vs',
-    borderRadius: '10@s',
-    resizeMode: 'contain',
-  },
-  carouselContainer: {
-    position: 'relative',
-    marginVertical: '10@vs',
-  },
-  bannerWrapper: {
-    width: screenWidth,
-    alignItems: 'center',
-  },
-  indicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'absolute',
-    bottom: '8@vs',
-    width: '100%',
-  },
-  indicator: {
-    width: '6@s',
-    height: '6@s',
-    borderRadius: '3@s',
-    backgroundColor: COLORS.gray700,
-    marginHorizontal: '3@s',
-  },
-  activeIndicator: {
-    backgroundColor: COLORS.black,
   },
   deliveryToButton: {
     position: 'absolute',

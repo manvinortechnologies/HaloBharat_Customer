@@ -16,6 +16,7 @@ import NormalHeader from '../component/NormalHeader';
 import COLORS from '../constants/colors';
 import { getFaqs } from '../api/support';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface FaqItem {
   id: string;
@@ -31,7 +32,8 @@ interface RootStackParamList {
 const HelpSupport = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [searchQuery, setSearchQuery] = useState('');
-  const userName = 'Rahul Sharma'; // TODO: wire to profile/user context
+  const [userName, setUserName] = useState<string | null>(null);
+
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,6 +81,16 @@ const HelpSupport = () => {
   useEffect(() => {
     fetchFaqs();
   }, [fetchFaqs]);
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await AsyncStorage.getItem('profile');
+      if (userData) {
+        const data = JSON.parse(userData);
+        setUserName(data?.full_name);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const filteredFaqs = useMemo(() => {
     const query = (searchQuery ?? '').toString().toLowerCase();
@@ -130,7 +142,7 @@ const HelpSupport = () => {
           </View>
 
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
+          {/* <View style={styles.searchContainer}>
             <Icon
               name="search"
               size={20}
@@ -144,7 +156,7 @@ const HelpSupport = () => {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-          </View>
+          </View> */}
 
           {/* FAQ Section */}
           <Text style={styles.sectionTitle}>

@@ -29,6 +29,8 @@ import { getCategories } from '../api/categories';
 import { getProducts } from '../api/products';
 import { getVendorBanners } from '../api/vendors';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import SimpleCarousel from '../component/SimpleCarousel';
+import ProductGridCard from '../component/ProductGridCard';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -59,75 +61,6 @@ interface BannerItem {
   title?: string | null;
   type?: string | null;
 }
-
-// Simple custom carousel component
-const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (data.length <= 1) {
-      setCurrentIndex(0);
-      return;
-    }
-    const timer = setInterval(() => {
-      const nextIndex = currentIndex === data.length - 1 ? 0 : currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollRef.current?.scrollTo({
-        x: nextIndex * screenWidth,
-        animated: true,
-      });
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, data.length]);
-
-  if (data.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.carouselContainer}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={event => {
-          const newIndex = Math.round(
-            event.nativeEvent.contentOffset.x / screenWidth,
-          );
-          setCurrentIndex(newIndex);
-        }}
-      >
-        {data.map((banner, index) => (
-          <View key={index} style={styles.bannerWrapper}>
-            {banner.imageUrl ? (
-              <Image
-                source={{ uri: banner.imageUrl }}
-                style={styles.bannerImage}
-              />
-            ) : (
-              <MaterialIcons name="image" size={s(40)} color={COLORS.primary} />
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.indicatorContainer}>
-        {data.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.indicator,
-              index === currentIndex && styles.activeIndicator,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-};
 
 const ProductCategoryList = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -213,8 +146,8 @@ const ProductCategoryList = () => {
         : null,
       discount: item?.discount_label ?? null,
       image,
-      rating: item.average_rating,
-      reviews: item.reviews_count || item.reviews.length || 0,
+      rating: item.reviews_count,
+      reviews: item.reviews.length || 0,
       soldCount: item.sold_count,
       deliveryDays: item.delivery_days,
       isBestseller: item?.best_seller || false,
@@ -304,7 +237,7 @@ const ProductCategoryList = () => {
   const topBanners = useMemo(
     () =>
       banners.filter(
-        banner => banner.type?.toLowerCase() === 'top' && banner.imageUrl,
+        banner => banner.type?.toLowerCase() === 'bottom' && banner.imageUrl,
       ),
     [banners],
   );
@@ -392,99 +325,14 @@ const ProductCategoryList = () => {
     const isLeftColumn = index % 2 === 0;
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.productCard,
-          isLeftColumn ? styles.leftCard : styles.rightCard,
-        ]}
-        onPress={() => navigation.navigate('ProductDetail', { product: item })}
-      >
-        {/* Discount Badge */}
-        {/* <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{item.discount}</Text>
-        </View> */}
-
-        {/* Bestseller Badge */}
-        {item.isBestseller ? (
-          <View style={styles.bestsellerBadge}>
-            <Text style={styles.bestsellerText}>Bestseller</Text>
-          </View>
-        ) : null}
-
-        {/* Product Image */}
-        <View style={styles.productImageContainer}>
-          {item.image ? (
-            <Image
-              source={item.image ? { uri: item.image } : fallbackProductImage}
-              style={styles.productImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons
-              name="image-outline"
-              size={s(80)}
-              color={COLORS.primary}
-            />
-          )}
-        </View>
-
-        {/* Favorite Icon */}
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Icon name="favorite-border" size={20} color={COLORS.white} />
-        </TouchableOpacity>
-
-        {/* Product Info */}
-        <View style={styles.productInfo}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          {item.description ? (
-            <Text style={styles.productDescription} numberOfLines={1}>
-              {item.description}
-            </Text>
-          ) : null}
-
-          {/* Delivery Badge */}
-          <View style={styles.deliveryBadge}>
-            <Text style={styles.deliveryText}>
-              {item.deliveryDays ?? 'Delivery in 3 days'}
-            </Text>
-          </View>
-
-          {/* Price Section */}
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>
-              {item.price ? `Rs ${item.price}` : 'Price unavailable'}
-            </Text>
-
-            <Text style={styles.originalPrice}>Rs {item.originalPrice}</Text>
-          </View>
-
-          {/* Rating and Sold Count */}
-          <View style={styles.ratingRow}>
-            <View style={styles.ratingBadge}>
-              <Icon name="star" size={12} color={COLORS.accentGold} />
-              <Text style={styles.ratingText}>
-                {item.rating ? item.rating.toFixed(1) : '--'}
-              </Text>
-            </View>
-            <Text style={styles.reviewText}>
-              {item.reviews ? `(${item.reviews})` : ''}
-            </Text>
-          </View>
-
-          {item.soldCount ? (
-            <Text style={styles.soldText}>{item.soldCount}</Text>
-          ) : null}
-        </View>
-      </TouchableOpacity>
+      <ProductGridCard item={item} index={index} isLeftColumn={isLeftColumn} />
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <NormalHeader title={headerTitle} />
+      <NormalHeader title="" showCartButton={true} showSearchButton={true} />
 
       {/* Delivery Address Bar */}
       {/* <View style={styles.deliveryBar}>
@@ -525,13 +373,12 @@ const ProductCategoryList = () => {
               <Text style={styles.selectedFilterText}>{filter}</Text>
               <TouchableOpacity
                 onPress={() => {
-                  if (filter.includes('Low to High')) {
+                  if (
+                    filter.includes('Low to High') ||
+                    filter.includes('High to Low')
+                  ) {
                     setPriceSort(null);
-                  } else if (filter.includes('High to Low')) {
-                    setPriceSort(null);
-                  } else if (filter === 'A to Z') {
-                    setNameSort(null);
-                  } else if (filter === 'Z to A') {
+                  } else if (filter === 'A to Z' || filter.includes('A to Z')) {
                     setNameSort(null);
                   }
                 }}
@@ -580,7 +427,12 @@ const ProductCategoryList = () => {
                 ]}
                 onPress={() => setSelectedCategory(item)}
               >
-                <View style={styles.categoryImageContainer}>
+                <View
+                  style={[
+                    styles.categoryImageContainer,
+                    isActive && styles.categoryItemActiveShadow,
+                  ]}
+                >
                   {item.image ? (
                     <Image
                       source={
@@ -589,13 +441,7 @@ const ProductCategoryList = () => {
                       style={styles.categoryImage}
                     />
                   ) : (
-                    <View style={styles.categoryImageContainer}>
-                      <Icon
-                        name="category"
-                        size={s(30)}
-                        color={COLORS.primary}
-                      />
-                    </View>
+                    <Icon name="category" size={s(30)} color={COLORS.primary} />
                   )}
                 </View>
                 <Text
@@ -603,6 +449,8 @@ const ProductCategoryList = () => {
                     styles.categoryText,
                     isActive && styles.categoryTextActive,
                   ]}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
                   {item.name}
                 </Text>
@@ -796,6 +644,11 @@ const styles = ScaledSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
+  rightButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '10@s',
+  },
   deliveryBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -813,37 +666,6 @@ const styles = ScaledSheet.create({
     height: '50@vs',
     backgroundColor: COLORS.accentRed,
     position: 'relative',
-  },
-  bannerImage: {
-    width: screenWidth - 20,
-    height: '180@vs',
-    borderRadius: '10@s',
-    resizeMode: 'contain',
-  },
-  carouselContainer: {
-    position: 'relative',
-    marginVertical: '10@vs',
-  },
-  bannerWrapper: {
-    width: screenWidth,
-    alignItems: 'center',
-  },
-  indicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'absolute',
-    bottom: '8@vs',
-    width: '100%',
-  },
-  indicator: {
-    width: '6@s',
-    height: '6@s',
-    borderRadius: '3@s',
-    backgroundColor: COLORS.gray700,
-    marginHorizontal: '3@s',
-  },
-  activeIndicator: {
-    backgroundColor: COLORS.black,
   },
   deliveryToButton: {
     position: 'absolute',
@@ -868,9 +690,9 @@ const styles = ScaledSheet.create({
   },
   filterContent: {
     paddingHorizontal: '16@s',
-    flexDirection: 'row',
+    // flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    // flexWrap: 'wrap',
   },
   filterButton: {
     flexDirection: 'row',
@@ -893,14 +715,14 @@ const styles = ScaledSheet.create({
   selectedFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: '10@s',
+    paddingHorizontal: '6@s',
     paddingVertical: '4@vs',
     backgroundColor: COLORS.infoSurface,
     borderRadius: '16@s',
     marginRight: '6@s',
     borderWidth: 1,
     borderColor: COLORS.primary,
-    height: '28@vs',
+    // height: '28@vs',
   },
   selectedFilterText: {
     fontSize: '11@ms',
@@ -1018,12 +840,13 @@ const styles = ScaledSheet.create({
   categoryItem: {
     alignItems: 'center',
     marginRight: '5@s',
+    maxWidth: '70@s',
   },
   categoryItemActive: {
     // backgroundColor: COLORS.infoSurface,
     borderRadius: '12@s',
     paddingHorizontal: '6@s',
-    paddingVertical: '4@vs',
+    // paddingVertical: '4@vs',
   },
   categoryImageContainer: {
     width: '50@s',
@@ -1034,6 +857,8 @@ const styles = ScaledSheet.create({
     backgroundColor: COLORS.gray950,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  categoryItemActiveShadow: {
     elevation: 15,
     shadowColor: COLORS.brandBlue,
     shadowOffset: {
@@ -1059,151 +884,6 @@ const styles = ScaledSheet.create({
     paddingHorizontal: '8@s',
     paddingTop: '12@vs',
     paddingBottom: '20@vs',
-  },
-  productCard: {
-    width: '48%',
-    backgroundColor: COLORS.white,
-    borderRadius: '12@s',
-    marginBottom: '12@vs',
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: COLORS.black,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  leftCard: {
-    marginRight: '4@s',
-    marginLeft: '8@s',
-  },
-  rightCard: {
-    marginLeft: '4@s',
-    marginRight: '8@s',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: '8@vs',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: '4@s',
-    paddingVertical: '2@vs',
-    borderRadius: '4@s',
-    zIndex: 2,
-  },
-  discountText: {
-    color: COLORS.white,
-    fontSize: '10@ms',
-    fontWeight: '400',
-  },
-  bestsellerBadge: {
-    position: 'absolute',
-    top: '30@vs',
-    backgroundColor: COLORS.accentBronze,
-    paddingHorizontal: '4@s',
-    paddingVertical: '2@vs',
-    borderRadius: '4@s',
-    zIndex: 2,
-  },
-  bestsellerText: {
-    color: COLORS.white,
-    fontSize: '10@ms',
-    fontWeight: '400',
-  },
-  productImageContainer: {
-    width: '100%',
-    height: '150@s',
-    backgroundColor: COLORS.gray1025,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: COLORS.gray1025,
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: '120@s',
-    right: '8@s',
-    backgroundColor: COLORS.overlayStrong,
-    borderRadius: '20@s',
-    padding: '3@s',
-    elevation: 2,
-    shadowColor: COLORS.black,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    zIndex: 2,
-  },
-  productInfo: {
-    padding: '10@s',
-  },
-  productName: {
-    width: '60%',
-    fontSize: '13@ms',
-    fontWeight: '500',
-    color: COLORS.black,
-    marginBottom: '2@vs',
-  },
-  productDescription: {
-    fontSize: '10@ms',
-    color: COLORS.textAsh,
-    marginBottom: '4@vs',
-  },
-  deliveryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.accentClay,
-    paddingHorizontal: '4@s',
-    paddingVertical: '2@vs',
-    marginBottom: '4@vs',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: '2@vs',
-  },
-  price: {
-    fontSize: '14@ms',
-    fontWeight: '700',
-    color: COLORS.black,
-    marginRight: '8@s',
-  },
-  originalPrice: {
-    fontSize: '13@ms',
-    color: COLORS.textAsh,
-    textDecorationLine: 'line-through',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: '2@vs',
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: '2@s',
-    paddingVertical: '2@vs',
-    borderRadius: '4@s',
-    marginRight: '2@s',
-  },
-  ratingText: {
-    color: COLORS.black,
-    fontSize: '10@ms',
-    fontWeight: '600',
-    marginLeft: '2@s',
-  },
-  reviewText: {
-    fontSize: '10@ms',
-    color: COLORS.textAsh,
-  },
-  soldText: {
-    fontSize: '11@ms',
-    color: COLORS.black,
   },
   errorBanner: {
     flexDirection: 'row',

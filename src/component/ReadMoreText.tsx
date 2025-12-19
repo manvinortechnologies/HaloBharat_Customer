@@ -61,10 +61,10 @@ const ReadMoreText = ({
   const handleTextLayout = useCallback(
     (event: NativeSyntheticEvent<{ lines: Array<{ text: string }> }>) => {
       const lines = event.nativeEvent.lines || [];
+      console.log('lines', event.nativeEvent);
       if (lines.length > numberOfLines) {
         setIsTruncatable(true);
       }
-      console.log('lines', lines);
     },
     [numberOfLines],
   );
@@ -83,7 +83,7 @@ const ReadMoreText = ({
         {content}
       </Text>
 
-      {!isTruncatable &&
+      {isTruncatable &&
         (renderTrigger ? (
           renderTrigger(openModal)
         ) : (

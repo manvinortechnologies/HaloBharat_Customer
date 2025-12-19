@@ -99,13 +99,11 @@ const Categories = () => {
               resizeMode="cover"
             />
           ) : (
-            <View style={styles.imageContainer}>
-              <MaterialIcons
-                name="category"
-                size={s(40)}
-                color={COLORS.primary}
-              />
-            </View>
+            <MaterialIcons
+              name="category"
+              size={s(40)}
+              color={COLORS.primary}
+            />
           )}
         </View>
         <Text
@@ -213,22 +211,14 @@ const styles = ScaledSheet.create({
     backgroundColor: COLORS.gray950,
     justifyContent: 'center',
     alignItems: 'center',
-    // marginBottom: '4@vs',
-    // shadowColor: COLORS.black,
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 2,
-    // },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 3,
-    // elevation: 3,
-    // overflow: 'hidden',
-    // Ensures image stays within rounded bounds
+    borderWidth: 1,
+    borderColor: COLORS.gray900,
+    overflow: 'hidden',
   },
   categoryImage: {
     width: '100%',
     height: '100%',
-    borderRadius: '30@s',
+    // borderRadius: '30@s',
   },
   categoryName: {
     fontSize: '12@ms',

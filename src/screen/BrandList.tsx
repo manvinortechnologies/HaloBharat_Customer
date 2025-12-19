@@ -190,7 +190,7 @@ const BrandList = () => {
         />
         <View style={styles.brandInfo}>
           <Text style={styles.brandName}>{item.name}</Text>
-          <Text style={styles.productCount}>{item.productCount}</Text>
+          {/* <Text style={styles.productCount}>{item.productCount}</Text> */}
         </View>
       </TouchableOpacity>
     );

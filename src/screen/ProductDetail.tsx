@@ -64,6 +64,7 @@ interface ProductDetailData {
   images: string[];
   vendorName: string | null;
   vendorLogo: string | null;
+  vendorId: string | null;
   subtitle: string | null;
   quantity: number | null;
   min_order_quantity: number | null;
@@ -316,6 +317,11 @@ const ProductDetail = ({ navigation, route }: any) => {
         images: imageList as string[],
         vendorName: item?.business?.name ?? null,
         vendorLogo: item?.business?.logo ?? null,
+        vendorId: item?.business?.id
+          ? String(item.business.id)
+          : item?.business_id
+          ? String(item.business_id)
+          : null,
         subtitle: item?.business?.description ?? null,
         quantity: item?.min_order_quantity ?? null,
         min_order_quantity: item?.min_order_quantity ?? null,
@@ -534,7 +540,12 @@ const ProductDetail = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <NormalHeader title="Product Details" />
+      <NormalHeader
+        title="Product Details"
+        showCartButton={true}
+        showWishlistButton={true}
+        showSearchButton={true}
+      />
       {/* Delivery Address Bar */}
       {/* <View style={styles.deliveryBar}>
         <Ion name="location-on" size={16} color={COLORS.white} />
@@ -631,37 +642,52 @@ const ProductDetail = ({ navigation, route }: any) => {
         {/* Product Info */}
         <View style={styles.infoContainer}>
           <View style={styles.titleRow}>
-            <Text style={styles.productName}>{activeProductName}</Text>
-            <View>
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
-              >
+            <View style={styles.productNameContainer}>
+              {activeProductName ? (
+                activeProductName.includes('/') ? (
+                  <>
+                    <Text style={styles.productNameLine1}>
+                      {activeProductName.split('/')[0].trim()}
+                    </Text>
+                    <Text style={styles.productNameLine2}>
+                      {activeProductName.split('/').slice(1).join('/').trim()}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.productNameLine1}>
+                    {activeProductName}
+                  </Text>
+                )
+              ) : null}
+            </View>
+            <View style={styles.priceContainer}>
+              <View style={styles.priceRow}>
                 <Text style={styles.discountedPrice}>
-                  {formatCurrency(activePrice)}
+                  {formatCurrency(activePrice ?? null)}
                 </Text>
-
                 <Text style={styles.originalPrice}>
                   Rs {activeOriginalPrice}
                 </Text>
               </View>
-              {activeSavings ? (
+              <Text style={styles.taxText}>Excl. of taxes</Text>
+              {activeSavings &&
+              typeof activeSavings === 'number' &&
+              activeSavings > 0 ? (
                 <View style={styles.saveBox}>
                   <Text style={styles.saveText}>Save Rs {activeSavings}</Text>
                 </View>
               ) : null}
             </View>
           </View>
+          <Text style={styles.descTextHeader}>Description</Text>
+          <Text style={styles.descText}>{activeDescription}</Text>
 
-          <ReadMoreText
-            text={activeDescription}
-            numberOfLines={3}
-            triggerLabel="read more"
-          />
-          <ReadMoreText
-            text={activeSpecification}
-            numberOfLines={3}
-            triggerLabel="read more"
-          />
+          {activeSpecification && (
+            <>
+              <Text style={styles.descTextHeader}>Specification</Text>
+              <Text style={styles.descText}>{activeSpecification}</Text>
+            </>
+          )}
 
           {/* Rating & Cashback */}
           <View style={styles.ratingRow}>
@@ -685,7 +711,14 @@ const ProductDetail = ({ navigation, route }: any) => {
 
           {/* Brand Info */}
           {vendorName && (
-            <View style={styles.brandRow}>
+            <TouchableOpacity
+              style={styles.brandRow}
+              onPress={() =>
+                navigation.navigate('VendorDetail', {
+                  businessId: productData?.vendorId,
+                })
+              }
+            >
               <View style={styles.brandLogoContainer}>
                 {productData?.vendorLogo ? (
                   <Image
@@ -701,7 +734,7 @@ const ProductDetail = ({ navigation, route }: any) => {
                 )}
               </View>
               <Text style={styles.brandName}>{vendorName}</Text>
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* Select Pack */}
@@ -1080,6 +1113,21 @@ const styles = ScaledSheet.create({
     justifyContent: 'space-between',
     marginBottom: '10@vs',
   },
+  productNameContainer: {
+    flex: 1,
+    marginRight: '10@s',
+  },
+  productNameLine1: {
+    fontSize: '14@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: '2@vs',
+  },
+  productNameLine2: {
+    fontSize: '14@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+  },
   productName: {
     width: '50%',
     fontSize: '14@ms',
@@ -1087,26 +1135,48 @@ const styles = ScaledSheet.create({
     color: COLORS.black,
     marginRight: '10@s',
   },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '10@s',
+    marginBottom: '4@vs',
+  },
   discountedPrice: {
     color: COLORS.black,
-    fontSize: '14@ms',
+    fontSize: '18@ms',
     fontWeight: '700',
   },
   originalPrice: {
     color: COLORS.textAsh,
-    fontSize: '11@ms',
+    fontSize: '12@ms',
     textDecorationLine: 'line-through',
   },
+  taxText: {
+    fontSize: '10@ms',
+    color: COLORS.accentRed,
+    marginBottom: '6@vs',
+  },
   saveBox: {
-    width: '80%',
     backgroundColor: COLORS.primaryDeep,
-    padding: '4@s',
-    borderRadius: '5@s',
+    paddingVertical: '6@vs',
+    paddingHorizontal: '12@s',
+    borderRadius: '6@s',
+    marginTop: '4@vs',
   },
   saveText: {
     color: COLORS.white,
-    fontSize: '10@ms',
+    fontSize: '11@ms',
+    fontWeight: '600',
     textAlign: 'center',
+  },
+  descTextHeader: {
+    fontSize: '14@ms',
+    color: COLORS.black,
+    marginBottom: '4@vs',
+    fontWeight: '600',
   },
   descText: {
     fontSize: '12@ms',

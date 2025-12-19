@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -237,6 +238,13 @@ const MyCart = ({ navigation }: any) => {
     fetchCartWithDetails();
   }, []);
 
+  // Refresh cart details when screen comes into focus (e.g., after adding address)
+  useFocusEffect(
+    useCallback(() => {
+      fetchCartWithDetails();
+    }, [fetchCartWithDetails]),
+  );
+
   const addressLine = useMemo(() => {
     if (!deliveryAddress) {
       return null;
@@ -345,6 +353,16 @@ const MyCart = ({ navigation }: any) => {
         text1: 'Cart Empty',
         text2: 'Please add items to cart before checkout.',
       });
+      return;
+    }
+
+    if (!deliveryAddress || !deliveryAddress.id) {
+      Toast.show({
+        type: 'error',
+        text1: 'Delivery Address Required',
+        text2: 'Please add a delivery address before checkout.',
+      });
+      navigation.navigate('AddAddress');
       return;
     }
 
@@ -601,30 +619,53 @@ const MyCart = ({ navigation }: any) => {
 
         {/* Delivery Section */}
         <View style={styles.deliveryContainer}>
-          <Text style={styles.deliveryTitle}>
-            Delivery To -{' '}
-            <Text style={styles.deliveryName}>
-              {deliveryAddress?.name ?? 'Add address'}
-            </Text>
-          </Text>
-          {addressLine ? (
-            <Text style={styles.deliveryText2}>{addressLine}</Text>
+          {deliveryAddress && deliveryAddress.id ? (
+            <>
+              <Text style={styles.deliveryTitle}>
+                Delivery To -{' '}
+                <Text style={styles.deliveryName}>{deliveryAddress.name}</Text>
+              </Text>
+              {addressLine ? (
+                <Text style={styles.deliveryText2}>{addressLine}</Text>
+              ) : null}
+              {deliveryAddress.phone ? (
+                <Text style={styles.deliveryText2}>
+                  Mobile - {deliveryAddress.phone}
+                </Text>
+              ) : null}
+              <TouchableOpacity
+                style={styles.editIcon}
+                onPress={() => navigation.navigate('AddAddress')}
+              >
+                <Icon name="edit" size={ms(18)} color={COLORS.black} />
+              </TouchableOpacity>
+            </>
           ) : (
-            <Text style={styles.deliveryText2}>
-              No delivery address selected
-            </Text>
+            <View style={styles.noAddressContainer}>
+              <View style={styles.noAddressContent}>
+                <Icon
+                  name="location-on"
+                  size={ms(24)}
+                  color={COLORS.primary}
+                  style={styles.addressIcon}
+                />
+                <View style={styles.noAddressTextContainer}>
+                  <Text style={styles.noAddressTitle}>
+                    No delivery address found
+                  </Text>
+                  <Text style={styles.noAddressSubtitle}>
+                    Please add a delivery address to continue
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.addAddressButton}
+                onPress={() => navigation.navigate('AddAddress')}
+              >
+                <Text style={styles.addAddressButtonText}>Add Address</Text>
+              </TouchableOpacity>
+            </View>
           )}
-          {deliveryAddress?.phone ? (
-            <Text style={styles.deliveryText2}>
-              Mobile - {deliveryAddress.phone}
-            </Text>
-          ) : null}
-          <TouchableOpacity
-            style={styles.editIcon}
-            onPress={() => navigation.navigate('AddAddress')}
-          >
-            <Icon name="edit" size={ms(18)} color={COLORS.black} />
-          </TouchableOpacity>
         </View>
 
         {/* Bill Details */}
@@ -705,14 +746,18 @@ const MyCart = ({ navigation }: any) => {
             styles.checkoutButton,
             (checkoutLoading ||
               cartItems.length === 0 ||
-              selectedItems.size === 0) &&
+              selectedItems.size === 0 ||
+              !deliveryAddress ||
+              !deliveryAddress.id) &&
               styles.checkoutButtonDisabled,
           ]}
           onPress={handleCheckout}
           disabled={
             checkoutLoading ||
             cartItems.length === 0 ||
-            selectedItems.size === 0
+            selectedItems.size === 0 ||
+            !deliveryAddress ||
+            !deliveryAddress.id
           }
         >
           {checkoutLoading ? (
@@ -991,6 +1036,43 @@ const styles = ScaledSheet.create({
     position: 'absolute',
     right: '10@s',
     top: '10@vs',
+  },
+  noAddressContainer: {
+    paddingVertical: '8@vs',
+  },
+  noAddressContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: '12@vs',
+  },
+  addressIcon: {
+    marginRight: '12@s',
+  },
+  noAddressTextContainer: {
+    flex: 1,
+  },
+  noAddressTitle: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: '4@vs',
+  },
+  noAddressSubtitle: {
+    fontSize: '12@ms',
+    color: COLORS.textSemiDark,
+  },
+  addAddressButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: '12@vs',
+    paddingHorizontal: '20@s',
+    borderRadius: '8@s',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addAddressButtonText: {
+    fontSize: '14@ms',
+    fontWeight: '600',
+    color: COLORS.white,
   },
   billContainer: {
     backgroundColor: COLORS.white,

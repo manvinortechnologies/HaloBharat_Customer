@@ -23,6 +23,7 @@ import {
 import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 import { getSupportTickets, createSupportTicket } from '../api/support';
 import Toast from 'react-native-toast-message';
+import COLORS from '../constants/colors';
 
 const ChatsScreen = () => {
   const navigation = useNavigation<
@@ -233,7 +234,7 @@ const ChatsScreen = () => {
   // Loading component
   const renderLoading = () => (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#555BCE" />
+      <ActivityIndicator size="large" color={COLORS.primary} />
       <Text style={styles.loadingText}>Loading chats...</Text>
     </View>
   );
@@ -297,6 +298,12 @@ const ChatsScreen = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="arrow-back" size={20} color="#fff" />
+        </TouchableOpacity>
         <Text style={styles.title}>Tickets</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity
@@ -320,8 +327,8 @@ const ChatsScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#555BCE']}
-            tintColor="#555BCE"
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
         ListEmptyComponent={
@@ -409,6 +416,11 @@ const styles = StyleSheet.create({
     paddingBottom: verticalScale(14),
     backgroundColor: '#fff',
   },
+  backBtn: {
+    // backgroundColor: COLORS.primary,
+    padding: scale(6),
+    // borderRadius: scale(20),
+  },
   title: {
     fontSize: moderateScale(20),
     fontWeight: '600',
@@ -418,7 +430,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconCircle: {
-    backgroundColor: '#4952FB',
+    backgroundColor: COLORS.primary,
     padding: scale(4),
     borderRadius: scale(20),
     marginRight: scale(10),
@@ -445,7 +457,7 @@ const styles = StyleSheet.create({
   },
   mic: {
     marginLeft: scale(10),
-    tintColor: '#4952FB',
+    tintColor: COLORS.primary,
   },
   filters: {
     flexDirection: 'row',
@@ -454,7 +466,7 @@ const styles = StyleSheet.create({
     marginLeft: scale(10),
   },
   filterBtn: {
-    borderColor: '#555BCE',
+    borderColor: COLORS.primary,
     borderWidth: 1,
     paddingHorizontal: scale(14),
     paddingVertical: verticalScale(6),
@@ -462,10 +474,10 @@ const styles = StyleSheet.create({
     marginHorizontal: scale(6),
   },
   filterBtnActive: {
-    backgroundColor: '#555BCE',
+    backgroundColor: COLORS.primary,
   },
   filterText: {
-    color: '#555BCE',
+    color: COLORS.primary,
     fontWeight: '500',
   },
   filterTextActive: {
@@ -563,7 +575,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: verticalScale(20),
-    backgroundColor: '#555BCE',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: scale(24),
     paddingVertical: verticalScale(12),
     borderRadius: scale(8),
@@ -636,7 +648,7 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(20),
   },
   startChatButton: {
-    backgroundColor: '#4952FB',
+    backgroundColor: COLORS.primary,
     paddingVertical: verticalScale(12),
     borderRadius: scale(8),
     alignItems: 'center',

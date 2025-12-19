@@ -17,6 +17,7 @@ const appendQuery = (
 export const BRAND_ENDPOINTS = {
   list: (params?: { search?: string }) =>
     appendQuery('/customer/api/brand-list/', params),
+  mostSearched: () => '/customer/api/most-searched-brands/',
 };
 
 export const ACCOUNT_ENDPOINTS = {

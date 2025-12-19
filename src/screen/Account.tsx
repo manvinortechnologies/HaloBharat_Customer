@@ -88,7 +88,7 @@ const Account = () => {
 
   return (
     <View style={styles.container}>
-      <NormalHeader title="Account" showBackButton={false} />
+      <NormalHeader title="Account" />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -136,9 +136,9 @@ const Account = () => {
             <Text style={styles.deleteButtonText}>Delete Account</Text>
           </TouchableOpacity> */}
 
-          <TouchableOpacity onPress={handleLogOut}>
+          {/* <TouchableOpacity onPress={handleLogOut}>
             <Text style={styles.logoutButtonText}>Log Out</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </View>

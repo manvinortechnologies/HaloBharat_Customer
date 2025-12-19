@@ -17,8 +17,16 @@ import Header from '../component/Header';
 import COLORS from '../constants/colors';
 import { getBestsellers } from '../api/products';
 import { getCategories } from '../api/categories';
+import { getBrands, getMostSearchedBrands } from '../api/brands';
+import { s } from 'react-native-size-matters';
 
 interface CategoryItem {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
+interface BrandItem {
   id: string;
   name: string;
   imageUrl: string | null;
@@ -30,6 +38,9 @@ const SearchScreen = ({ navigation }: any) => {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
   const [topPicks, setTopPicks] = useState<ProductCard[]>([]);
   const [topPicksLoading, setTopPicksLoading] = useState(false);
   const [topPicksError, setTopPicksError] = useState<string | null>(null);
@@ -92,24 +103,51 @@ const SearchScreen = ({ navigation }: any) => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const brands = [
-    {
-      id: '1',
-      name: 'Ultratech Cement',
-      image: require('../assets/ultratech.png'),
-    },
-    { id: '2', name: 'Astral Pipes', image: require('../assets/astral.png') },
-    {
-      id: '3',
-      name: 'Heidelberg Materail',
-      image: require('../assets/heidelberg.png'),
-    },
-  ];
+  const normalizeBrand = useCallback((item: any, index: number): BrandItem => {
+    return {
+      id: String(item?.id ?? item?.brand_id ?? `brand-${index}`),
+      name: item?.name ?? item?.title ?? 'Brand',
+      imageUrl:
+        item?.image ??
+        item?.icon ??
+        item?.thumbnail ??
+        item?.featured_image ??
+        item?.logo ??
+        null,
+    };
+  }, []);
+
+  const fetchBrands = useCallback(async () => {
+    setBrandsLoading(true);
+    setBrandsError(null);
+    try {
+      const payload = await getMostSearchedBrands();
+      const listSource = Array.isArray(payload?.brands)
+        ? payload.brands
+        : Array.isArray(payload?.results)
+        ? payload.results
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+        ? payload
+        : [];
+      setBrands(listSource.map(normalizeBrand));
+    } catch (error: any) {
+      setBrands([]);
+      setBrandsError(error?.message || 'Unable to load brands.');
+    } finally {
+      setBrandsLoading(false);
+    }
+  }, [normalizeBrand]);
+
+  useEffect(() => {
+    fetchBrands();
+  }, [fetchBrands]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(searchQuery.trim());
-    }, 400);
+    }, 500);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -238,7 +276,7 @@ const SearchScreen = ({ navigation }: any) => {
         </View> */}
 
         {/* Recent Searches Section */}
-        <View style={styles.section}>
+        {/*<View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>RECENT SEARCHES</Text>
           </View>
@@ -249,7 +287,7 @@ const SearchScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </View>*/}
 
         {/* Categories Section */}
         <View style={styles.section}>
@@ -293,17 +331,27 @@ const SearchScreen = ({ navigation }: any) => {
                   onPress={() => navigation.navigate('ProductCategoryList')}
                 >
                   <View style={styles.categoryImageWrapper}>
-                    <Image
-                      source={
-                        item.imageUrl
-                          ? { uri: item.imageUrl }
-                          : fallbackCategoryImage
-                      }
-                      style={styles.categoryImage}
-                      resizeMode="cover"
-                    />
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.categoryImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <MaterialIcon
+                        name="category"
+                        size={s(40)}
+                        color={COLORS.primary}
+                      />
+                    )}
                   </View>
-                  <Text style={styles.categoryText}>{item.name}</Text>
+                  <Text
+                    style={styles.categoryText}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {item.name}
+                  </Text>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
@@ -336,26 +384,66 @@ const SearchScreen = ({ navigation }: any) => {
               <Icon name="chevron-forward" size={16} color={COLORS.gray400} />
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.brandsContainer}
-          >
-            {brands.map((brand, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.brandCard}
-                onPress={() => navigation.navigate('ProductCategoryList')}
-              >
-                <Image
-                  source={brand.image}
-                  style={styles.brandImage}
-                  resizeMode="cover"
-                />
-                <Text style={styles.brandName}>{brand.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+
+          {brandsError ? (
+            <TouchableOpacity style={styles.errorBanner} onPress={fetchBrands}>
+              <Icon name="warning-outline" size={18} color={COLORS.accentRed} />
+              <Text style={styles.errorText}>{brandsError}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {brandsLoading && brands.length === 0 ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loaderText}>Loading brands...</Text>
+            </View>
+          ) : brands.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.brandsContainer}
+            >
+              {brands.map((brand, index) => (
+                <TouchableOpacity
+                  key={brand.id}
+                  style={styles.brandCard}
+                  onPress={() => navigation.navigate('ProductCategoryList')}
+                >
+                  {brand.imageUrl ? (
+                    <Image
+                      source={{ uri: brand.imageUrl }}
+                      style={styles.brandImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.brandImagePlaceholder}>
+                      <MaterialIcon
+                        name="business"
+                        size={s(24)}
+                        color={COLORS.primary}
+                      />
+                    </View>
+                  )}
+                  <Text
+                    style={styles.brandName}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {brand.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : !brandsLoading ? (
+            <View style={styles.emptyState}>
+              <Icon name="business-outline" size={32} color={COLORS.gray500} />
+              <Text style={styles.emptyTitle}>No brands available</Text>
+              <Text style={styles.emptySubtitle}>
+                Check back soon for more brands.
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Top Picks Section */}
@@ -553,7 +641,9 @@ const styles = ScaledSheet.create({
     fontWeight: '400',
   },
   categoriesContainer: {
+    flexGrow: 1,
     paddingVertical: '4@vs',
+    justifyContent: 'center',
   },
   categoryItem: {
     alignItems: 'center',
@@ -561,12 +651,14 @@ const styles = ScaledSheet.create({
     width: '70@s',
   },
   categoryImageWrapper: {
-    width: '80@s',
-    height: '80@s',
+    width: '60@s',
+    height: '60@s',
     borderRadius: '40@s',
     overflow: 'hidden',
     marginBottom: '2@vs',
     backgroundColor: COLORS.gray1025,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryImage: {
     width: '100%',
@@ -582,8 +674,8 @@ const styles = ScaledSheet.create({
     paddingVertical: '4@vs',
   },
   brandCard: {
-    width: '110@s',
-    height: '50@s',
+    width: '120@s',
+    height: '60@s',
     borderRadius: '12@s',
     marginRight: '12@s',
     overflow: 'hidden',
@@ -593,10 +685,18 @@ const styles = ScaledSheet.create({
     width: '100%',
     height: '100%',
   },
+  brandImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.gray1025,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   brandName: {
     position: 'absolute',
     bottom: '8@vs',
     left: '8@s',
+    maxWidth: '100@s',
     fontSize: '10@ms',
     fontWeight: '600',
     color: COLORS.white,
@@ -605,7 +705,9 @@ const styles = ScaledSheet.create({
     textShadowRadius: 2,
   },
   topPicksContainer: {
+    flexGrow: 1,
     paddingVertical: '4@vs',
+    justifyContent: 'center',
   },
   topPickCard: {
     width: '140@s',

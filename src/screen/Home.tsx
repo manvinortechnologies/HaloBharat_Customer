@@ -34,9 +34,7 @@ import {
 } from '../api/wishlist';
 import { getVendorBanners } from '../api/vendors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// Use regular require instead of reanimated carousel for now
-// Alternatively, we'll create a simple custom carousel
+import SimpleCarousel from '../component/SimpleCarousel';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -67,71 +65,6 @@ interface BannerItem {
   title?: string | null;
   type?: string | null;
 }
-
-// Simple custom carousel component
-const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (data.length <= 1) {
-      setCurrentIndex(0);
-      return;
-    }
-    const timer = setInterval(() => {
-      const nextIndex = currentIndex === data.length - 1 ? 0 : currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollRef.current?.scrollTo({
-        x: nextIndex * screenWidth,
-        animated: true,
-      });
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, data.length]);
-
-  if (data.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.carouselContainer}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={event => {
-          const newIndex = Math.round(
-            event.nativeEvent.contentOffset.x / screenWidth,
-          );
-          setCurrentIndex(newIndex);
-        }}
-      >
-        {data.map((banner, index) => (
-          <View key={index} style={styles.bannerWrapper}>
-            <Image
-              source={{ uri: banner.imageUrl }}
-              style={styles.bannerImage}
-            />
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.indicatorContainer}>
-        {data.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.indicator,
-              index === currentIndex && styles.activeIndicator,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-};
 
 const Home = () => {
   const navigation = useNavigation<any>();
@@ -389,7 +322,7 @@ const Home = () => {
 
   return (
     <View style={[styles.container]}>
-      <Header />
+      <Header showBackButton={false} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -454,7 +387,13 @@ const Home = () => {
                     />
                   </View>
                 )}
-                <Text style={styles.categoryText}>{item.name}</Text>
+                <Text
+                  style={styles.categoryText}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {item.name}
+                </Text>
               </TouchableOpacity>
             )}
           />
@@ -527,7 +466,7 @@ const Home = () => {
                   ) : (
                     <MaterialIcons
                       name="image"
-                      size={s(40)}
+                      size={s(80)}
                       color={COLORS.primary}
                     />
                   )}
@@ -699,12 +638,14 @@ const styles = ScaledSheet.create({
     backgroundColor: COLORS.gray975,
   },
   categoriesContainer: {
+    flexGrow: 1,
     paddingHorizontal: '10@s',
     paddingVertical: '5@vs',
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: '5@s',
+    marginRight: '8@s',
+    maxWidth: '70@s',
   },
   categoryImage: {
     width: '60@s',
@@ -725,37 +666,6 @@ const styles = ScaledSheet.create({
     fontSize: '12@ms',
     fontWeight: '500',
     textAlign: 'center',
-  },
-  carouselContainer: {
-    position: 'relative',
-  },
-  bannerWrapper: {
-    width: screenWidth,
-    alignItems: 'center',
-  },
-  bannerImage: {
-    width: screenWidth - 20,
-    height: '180@vs',
-    borderRadius: '10@s',
-    resizeMode: 'contain',
-  },
-
-  indicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'absolute',
-    bottom: '8@vs',
-    width: '100%',
-  },
-  indicator: {
-    width: '6@s',
-    height: '6@s',
-    borderRadius: '3@s',
-    backgroundColor: COLORS.gray700,
-    marginHorizontal: '3@s',
-  },
-  activeIndicator: {
-    backgroundColor: COLORS.black,
   },
   sectionTitle: {
     fontSize: '18@ms',
@@ -782,6 +692,8 @@ const styles = ScaledSheet.create({
     borderWidth: 1,
     borderColor: COLORS.gray850,
     backgroundColor: COLORS.gray950,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   brandImage: {
     width: '100%',
@@ -812,6 +724,7 @@ const styles = ScaledSheet.create({
     fontSize: '13@ms',
     fontWeight: '700',
     alignSelf: 'center',
+    marginTop: '5@s',
   },
   sectionHeader: {
     flexDirection: 'row',

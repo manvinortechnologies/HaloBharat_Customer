@@ -18,10 +18,12 @@ const Header = ({
   value,
   onChangeText,
   placeholder,
+  showBackButton = true,
 }: {
   value?: string;
   onChangeText?: (text: string) => void;
   placeholder?: string;
+  showBackButton?: boolean;
 }) => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -30,12 +32,20 @@ const Header = ({
     <View style={styles.safeArea}>
       {/* Top Header */}
       <View style={styles.container}>
+        {showBackButton && navigation.canGoBack() && (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={ms(20)} color={COLORS.black} />
+          </TouchableOpacity>
+        )}
         <Image
           source={require('../assets/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-
+        <View style={{ flexGrow: 1 }} />
         <View style={styles.iconContainer}>
           {/* Notification Button */}
           {/* <TouchableOpacity
@@ -124,14 +134,19 @@ const styles = ScaledSheet.create({
   },
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+
     alignItems: 'center',
-    paddingHorizontal: '10@s',
+    // paddingHorizontal: '10@s',
+  },
+  backButton: {
+    padding: '5@s',
+    marginLeft: '10@s',
   },
   logo: {
     width: '80@s',
-    height: '60@vs',
-    marginLeft: '-15@s',
+    height: '60@s',
+    // marginLeft: '-15@s',
+    // flexGrow: 1,
   },
   iconContainer: {
     flexDirection: 'row',

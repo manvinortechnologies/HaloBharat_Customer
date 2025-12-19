@@ -187,14 +187,7 @@ const MyOrders = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <NormalHeader
-        title="My Orders"
-        rightButton={
-          <TouchableOpacity onPress={() => navigation.navigate('MyCart')}>
-            <Ionicons name="bag-outline" size={24} color={COLORS.black} />
-          </TouchableOpacity>
-        }
-      />
+      <NormalHeader title="My Orders" showCartButton={true} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -327,7 +320,7 @@ const styles = ScaledSheet.create({
     alignItems: 'center',
     gap: '8@s',
     marginHorizontal: '12@s',
-    marginBottom: '12@vs',
+    marginVertical: '10@s',
   },
   dateButton: {
     flexDirection: 'row',
