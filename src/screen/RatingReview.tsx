@@ -34,10 +34,6 @@ const RatingReview = ({ route }: any) => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const fallbackImages = useMemo(
-    () => [require('../assets/review1.png'), require('../assets/review2.png')],
-    [],
-  );
 
   useEffect(() => {
     const handler = setTimeout(() => {

@@ -28,6 +28,7 @@ import COLORS from '../constants/colors';
 import { getBestsellers } from '../api/products';
 import { getVendorBanners } from '../api/vendors';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -53,13 +54,7 @@ interface BannerItem {
 }
 
 // Simple custom carousel component
-const SimpleCarousel = ({
-  data,
-  fallbackImage,
-}: {
-  data: BannerItem[];
-  fallbackImage: ImageSourcePropType;
-}) => {
+const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -100,12 +95,14 @@ const SimpleCarousel = ({
       >
         {data.map((banner, index) => (
           <View key={index} style={styles.bannerWrapper}>
-            <Image
-              source={
-                banner.imageUrl ? { uri: banner.imageUrl } : fallbackImage
-              }
-              style={styles.bannerImage}
-            />
+            {banner.imageUrl ? (
+              <Image
+                source={{ uri: banner.imageUrl }}
+                style={styles.bannerImage}
+              />
+            ) : (
+              <MaterialIcons name="image" size={s(40)} color={COLORS.primary} />
+            )}
           </View>
         ))}
       </ScrollView>
@@ -442,7 +439,7 @@ const ProductList = () => {
           <Text style={styles.loaderText}>Loading banners...</Text>
         </View>
       ) : (
-        <SimpleCarousel data={topBanners} fallbackImage={fallbackBannerImage} />
+        <SimpleCarousel data={topBanners} />
       )}
 
       {/* Filter Tabs */}

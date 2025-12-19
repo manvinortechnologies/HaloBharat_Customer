@@ -3,6 +3,7 @@ import endpoints from './endpoints';
 
 export interface FirebaseLoginPayload {
   id_token: string;
+  role: string;
 }
 
 export interface SignupPayload {
@@ -23,6 +24,7 @@ export interface SignupPayload {
 export const firebaseLogin = async (idToken: string) => {
   const response = await apiClient.post(endpoints.account.firebaseLogin, {
     id_token: idToken,
+    role: 'Customer',
   } satisfies FirebaseLoginPayload);
 
   return response.data;

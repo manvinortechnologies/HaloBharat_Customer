@@ -21,6 +21,7 @@ import COLORS from '../constants/colors';
 import { checkoutCart, removeCartItem, updateCartItem } from '../api/cart';
 import Toast from 'react-native-toast-message';
 import { useCart, CartItem } from '../context/CartContext';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 interface BillDetails {
   itemTotal: number;
@@ -54,11 +55,6 @@ const MyCart = ({ navigation }: any) => {
     useCart();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(
     () => new Set(),
-  );
-  const fallbackImage = useMemo(() => require('../assets/product1.png'), []);
-  const placeholderProductImage = useMemo(
-    () => require('../assets/product2.png'),
-    [],
   );
   const [billDetails, setBillDetails] = useState<BillDetails>({
     itemTotal: 0,
@@ -176,10 +172,10 @@ const MyCart = ({ navigation }: any) => {
         name: product?.name ?? product?.title ?? 'Product',
         originalPrice: originalPriceValue,
         discountedPrice: discountedPriceValue,
-        image: imageUrl ? { uri: imageUrl } : placeholderProductImage,
+        image: { uri: imageUrl },
       };
     },
-    [parseAmount, placeholderProductImage],
+    [parseAmount],
   );
 
   const fetchCartWithDetails = useCallback(async () => {
@@ -507,12 +503,20 @@ const MyCart = ({ navigation }: any) => {
                       )}
                     </TouchableOpacity>
                   </View>
-                  <Image
-                    source={
-                      item.imageUrl ? { uri: item.imageUrl } : fallbackImage
-                    }
-                    style={styles.cartImage}
-                  />
+                  <View style={styles.cartImageContainer}>
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.cartImage}
+                      />
+                    ) : (
+                      <MaterialIcons
+                        name="image"
+                        size={s(40)}
+                        color={COLORS.primary}
+                      />
+                    )}
+                  </View>
                   <View style={styles.cartDetails}>
                     <Text style={styles.title}>{item.title}</Text>
                     {item.seller ? (
@@ -851,9 +855,17 @@ const styles = ScaledSheet.create({
     fontSize: '10@ms',
     color: COLORS.textAsh,
   },
-  cartImage: {
+  cartImageContainer: {
     width: '80@s',
     height: '80@s',
+    borderRadius: '6@s',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray900,
+  },
+  cartImage: {
+    width: '100%',
+    height: '100%',
     borderRadius: '6@s',
   },
   cartDetails: {

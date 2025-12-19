@@ -34,7 +34,7 @@ interface Product {
   name: string;
   vendorName?: string | null;
   quantity: number;
-  imageUrl?: string | null;
+  imageUrl?: string;
   sku?: string | null;
   unitPrice?: string | number | null;
   lineTotal?: string | number | null;
@@ -55,7 +55,6 @@ type AssignProjectRoute = RouteProp<
 const AssignProject = () => {
   const route = useRoute<AssignProjectRoute>();
   const { orderId, items, initialItemId, initialAction } = route.params ?? {};
-  const fallbackImage = useMemo(() => require('../assets/product1.png'), []);
 
   const normalizedProducts = useMemo<Product[]>(() => {
     if (!Array.isArray(items)) {
@@ -66,7 +65,7 @@ const AssignProject = () => {
       name: item?.product_name ?? 'Product',
       vendorName: item?.vendor_name ?? null,
       quantity: Number(item?.quantity ?? 1),
-      imageUrl: item?.product_image ?? null,
+      imageUrl: item?.product_image,
       sku: item?.sku ?? null,
       unitPrice: item?.unit_price ?? null,
       lineTotal: item?.line_total ?? null,
@@ -285,9 +284,7 @@ const AssignProject = () => {
           products.map(product => (
             <View key={product.id} style={styles.productCard}>
               <Image
-                source={
-                  product.imageUrl ? { uri: product.imageUrl } : fallbackImage
-                }
+                source={{ uri: product.imageUrl }}
                 style={styles.productImage}
                 resizeMode="cover"
               />

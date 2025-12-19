@@ -29,6 +29,7 @@ type RootStackParamList = {
 };
 
 import type { StackNavigationProp } from '@react-navigation/stack';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 const MyOrders = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -36,7 +37,6 @@ const MyOrders = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fallbackImage = useMemo(() => require('../assets/orderImg1.png'), []);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -159,23 +159,27 @@ const MyOrders = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.imagesScrollContainer}
         >
-          {products.map((product: any, index: number) => (
-            <View
-              key={product?.id ?? product?.product_id ?? index}
-              style={styles.itemImageContainer}
-            >
-              {product?.product_image && (
-                <Image
-                  source={
-                    product?.product_image
-                      ? { uri: product.product_image }
-                      : fallbackImage
-                  }
-                  style={styles.itemImage}
-                />
-              )}
-            </View>
-          ))}
+          {products
+            .filter((product: any) => product?.product_image)
+            .map((product: any, index: number) => (
+              <View
+                key={product?.id ?? product?.product_id ?? index}
+                style={styles.itemImageContainer}
+              >
+                {product?.product_image ? (
+                  <Image
+                    source={{ uri: product.product_image }}
+                    style={styles.itemImage}
+                  />
+                ) : (
+                  <MaterialIcons
+                    name="image"
+                    size={s(40)}
+                    color={COLORS.primary}
+                  />
+                )}
+              </View>
+            ))}
         </ScrollView>
       </TouchableOpacity>
     );

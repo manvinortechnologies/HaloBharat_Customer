@@ -35,7 +35,6 @@ const OrderDetail = ({ navigation }: any) => {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const fallbackImage = useMemo(() => require('../assets/orderImg1.png'), []);
 
   const formatDate = useCallback((value?: string) => {
     if (!value) {
@@ -291,11 +290,7 @@ const OrderDetail = ({ navigation }: any) => {
                     <View style={styles.leftSection}>
                       {product?.product_image ? (
                         <Image
-                          source={
-                            product?.product_image
-                              ? { uri: product.product_image }
-                              : fallbackImage
-                          }
+                          source={{ uri: product.product_image }}
                           style={styles.productImage}
                         />
                       ) : (

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NormalHeader from '../component/NormalHeader';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ScaledSheet } from 'react-native-size-matters';
+import { s, ScaledSheet } from 'react-native-size-matters';
 import COLORS from '../constants/colors';
 import {
   NavigationProp,
@@ -21,6 +21,7 @@ import {
 } from '@react-navigation/native';
 import { getProjectDetail, getProjectProducts } from '../api/projects';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 type ProjectDetailRoute = RouteProp<
   {
@@ -54,7 +55,6 @@ const MyProjectDetail = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<ProjectDetailRoute>();
   const { projectId, name: fallbackTitle } = route.params ?? {};
-  const fallbackImage = useMemo(() => require('../assets/orderImg1.png'), []);
 
   const [project, setProject] = useState<any | null>(null);
   const [projectProducts, setProjectProducts] = useState<any[]>([]);
@@ -237,10 +237,15 @@ const MyProjectDetail = () => {
             }}
           >
             <View style={styles.itemContent}>
-              <Image
-                source={item.image ? { uri: item.image } : fallbackImage}
-                style={styles.image}
-              />
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.image} />
+              ) : (
+                <MaterialIcons
+                  name="image"
+                  size={s(40)}
+                  color={COLORS.primary}
+                />
+              )}
               <View style={styles.itemInfo}>
                 <Text style={styles.name}>{item.name}</Text>
                 {item.quantity != null ? (

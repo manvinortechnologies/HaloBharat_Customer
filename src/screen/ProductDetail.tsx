@@ -33,6 +33,8 @@ import {
 } from '../api/wishlist';
 import Toast from 'react-native-toast-message';
 import { useCart } from '../context/CartContext';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import ReadMoreText from '../component/ReadMoreText';
 
 const { width } = Dimensions.get('window');
 
@@ -51,6 +53,7 @@ interface ProductDetailData {
   id: string;
   name: string;
   description: string;
+  specification: string;
   price: number | null;
   originalPrice: number | null;
   is_bestseller: boolean;
@@ -298,10 +301,8 @@ const ProductDetail = ({ navigation, route }: any) => {
       return {
         id: String(item?.id ?? item?.product_id ?? productId),
         name: item?.name ?? item?.title ?? 'Product',
-        description:
-          item?.description ??
-          item?.short_description ??
-          'Product description not available at the moment.',
+        description: item?.description,
+        specification: item?.specification,
         price: priceValue,
         originalPrice: originalValue ? originalValue : null,
         is_bestseller: item?.best_seller || false,
@@ -486,19 +487,18 @@ const ProductDetail = ({ navigation, route }: any) => {
     }
   };
 
-  const activeProductName = productData?.name ?? defaultProduct.name;
-  const activePrice = productData?.price ?? null;
+  const activeProductName = productData?.name;
+  const activePrice = productData?.price;
   const activeOriginalPrice = productData?.originalPrice || 0;
-  const activeSavings = productData?.savings ?? null;
-  const activeDescription =
-    productData?.description ??
-    'Product description not available at the moment.';
-  const activeRating = productData?.rating ?? null;
+  const activeSavings = productData?.savings;
+  const activeDescription = productData?.description;
+  const activeSpecification = productData?.specification;
+  const activeRating = productData?.rating;
   const activeReviews = Array.isArray(productData?.reviews)
     ? productData.reviews
     : [];
-  const activeSubtitle = productData?.subtitle || null;
-  const vendorName = productData?.vendorName || null;
+  const activeSubtitle = productData?.subtitle;
+  const vendorName = productData?.vendorName;
 
   const formatCurrency = (value: number | null) =>
     typeof value === 'number' && !Number.isNaN(value)
@@ -652,7 +652,16 @@ const ProductDetail = ({ navigation, route }: any) => {
             </View>
           </View>
 
-          <Text style={styles.descText}>{activeDescription}</Text>
+          <ReadMoreText
+            text={activeDescription}
+            numberOfLines={3}
+            triggerLabel="read more"
+          />
+          <ReadMoreText
+            text={activeSpecification}
+            numberOfLines={3}
+            triggerLabel="read more"
+          />
 
           {/* Rating & Cashback */}
           <View style={styles.ratingRow}>
@@ -677,12 +686,20 @@ const ProductDetail = ({ navigation, route }: any) => {
           {/* Brand Info */}
           {vendorName && (
             <View style={styles.brandRow}>
-              {productData?.vendorLogo ? (
-                <Image
-                  source={{ uri: productData.vendorLogo }}
-                  style={styles.brandLogo}
-                />
-              ) : null}
+              <View style={styles.brandLogoContainer}>
+                {productData?.vendorLogo ? (
+                  <Image
+                    source={{ uri: productData.vendorLogo }}
+                    style={styles.brandLogo}
+                  />
+                ) : (
+                  <MaterialIcons
+                    name="image"
+                    size={s(20)}
+                    color={COLORS.primary}
+                  />
+                )}
+              </View>
               <Text style={styles.brandName}>{vendorName}</Text>
             </View>
           )}
@@ -1133,9 +1150,21 @@ const styles = ScaledSheet.create({
     alignItems: 'center',
     marginTop: '8@vs',
   },
-  brandLogo: {
+  brandLogoContainer: {
     width: '30@s',
     height: '30@s',
+    borderRadius: '15@s',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray975,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.gray850,
+    marginRight: '6@s',
+  },
+  brandLogo: {
+    width: '100%',
+    height: '100%',
     borderRadius: '15@s',
     resizeMode: 'cover',
     marginRight: '6@s',
@@ -1150,6 +1179,7 @@ const styles = ScaledSheet.create({
     fontWeight: '700',
     marginTop: '15@vs',
     color: COLORS.black,
+    marginHorizontal: '15@s',
   },
   selectRow: { flexDirection: 'row', gap: '10@s', marginTop: '10@vs' },
   packCard: {

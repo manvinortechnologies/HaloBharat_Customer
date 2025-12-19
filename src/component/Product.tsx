@@ -8,9 +8,9 @@ import {
   ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ScaledSheet } from 'react-native-size-matters';
+import { s, ScaledSheet } from 'react-native-size-matters';
 import COLORS from '../constants/colors';
-
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 interface ProductCardProps {
   item: {
     id: string;
@@ -33,7 +33,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const isGrid = variant === 'grid';
   const isCompact = variant === 'compact';
-
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -47,7 +46,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
     >
       {/* Image Section */}
       <View style={[styles.imageContainer, isCompact && styles.compactImage]}>
-        <Image source={item.image} style={styles.image} resizeMode="cover" />
+        {item.image.uri ? (
+          <Image source={item.image} style={styles.image} resizeMode="cover" />
+        ) : (
+          <MaterialIcons name="image" size={s(60)} color={COLORS.primary} />
+        )}
 
         {item.discount && (
           <View style={styles.discountBadge}>
@@ -116,8 +119,10 @@ const styles = ScaledSheet.create({
     overflow: 'hidden',
   },
   imageContainer: {
-    height: 110,
+    height: '80@s',
     position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   compactImage: {
     width: '30%',

@@ -46,7 +46,7 @@ interface Product {
 
 interface BannerItem {
   id: string;
-  imageUrl: string | null;
+  imageUrl: string;
   title?: string | null;
   type?: string | null;
 }
@@ -57,13 +57,7 @@ type BrandRoute = RouteProp<
 >;
 
 // Simple custom carousel component
-const SimpleCarousel = ({
-  data,
-  fallbackImage,
-}: {
-  data: BannerItem[];
-  fallbackImage: ImageSourcePropType;
-}) => {
+const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -105,9 +99,7 @@ const SimpleCarousel = ({
         {data.map((banner, index) => (
           <View key={index} style={styles.bannerWrapper}>
             <Image
-              source={
-                banner.imageUrl ? { uri: banner.imageUrl } : fallbackImage
-              }
+              source={{ uri: banner.imageUrl }}
               style={styles.bannerImage}
             />
           </View>
@@ -144,10 +136,6 @@ const BrandProductsList = () => {
     () => require('../assets/product1.png'),
     [],
   );
-  const fallbackBannerImage = useMemo(
-    () => require('../assets/flashBanner.png'),
-    [],
-  );
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,7 +148,7 @@ const BrandProductsList = () => {
     (item: any, index: number): BannerItem => {
       return {
         id: String(item?.id ?? `banner-${index}`),
-        imageUrl: item?.image_url ?? item?.image ?? null,
+        imageUrl: item?.image_url ?? item?.image,
         title: item?.title ?? null,
         type: item?.type ?? null,
       };
@@ -417,7 +405,7 @@ const BrandProductsList = () => {
           <Text style={styles.loaderText}>Loading banners...</Text>
         </View>
       ) : (
-        <SimpleCarousel data={topBanners} fallbackImage={fallbackBannerImage} />
+        <SimpleCarousel data={topBanners} />
       )}
 
       <View style={styles.filterContainer}>

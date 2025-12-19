@@ -52,9 +52,6 @@ const Wishlist = () => {
   const [error, setError] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
-  const fallbackImage = useMemo(() => require('../assets/product1.png'), []);
-
-  const deliveryAddress = 'Rahul Sharma, #1234, Sector 6, Mumbai';
 
   const toggleWishlist = async (wishlistItemId: string) => {
     setRemovingItemId(wishlistItemId);
@@ -298,7 +295,7 @@ const Wishlist = () => {
         {/* Product Image */}
         {item.imageUrl ? (
           <Image
-            source={item.imageUrl ? { uri: item.imageUrl } : fallbackImage}
+            source={{ uri: item.imageUrl }}
             style={styles.productImage}
             resizeMode="cover"
           />

@@ -32,7 +32,6 @@ const Categories = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fallbackImage = useMemo(() => require('../assets/paints.png'), []);
 
   const normalizeCategory = useCallback((item: any, index: number) => {
     return {
@@ -95,7 +94,7 @@ const Categories = () => {
         <View style={styles.imageContainer}>
           {item.imageUrl ? (
             <Image
-              source={item.imageUrl ? { uri: item.imageUrl } : fallbackImage}
+              source={{ uri: item.imageUrl }}
               style={styles.categoryImage}
               resizeMode="cover"
             />
@@ -118,7 +117,7 @@ const Categories = () => {
         </Text>
       </TouchableOpacity>
     ),
-    [fallbackImage, navigation],
+    [navigation],
   );
 
   const renderListHeader = useCallback(() => {

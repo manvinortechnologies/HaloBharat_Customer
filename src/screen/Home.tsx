@@ -63,19 +63,13 @@ interface ProductItem {
 
 interface BannerItem {
   id: string;
-  imageUrl: string | null;
+  imageUrl: string;
   title?: string | null;
   type?: string | null;
 }
 
 // Simple custom carousel component
-const SimpleCarousel = ({
-  data,
-  fallbackImage,
-}: {
-  data: BannerItem[];
-  fallbackImage: ImageSourcePropType;
-}) => {
+const SimpleCarousel = ({ data }: { data: BannerItem[] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -117,9 +111,7 @@ const SimpleCarousel = ({
         {data.map((banner, index) => (
           <View key={index} style={styles.bannerWrapper}>
             <Image
-              source={
-                banner.imageUrl ? { uri: banner.imageUrl } : fallbackImage
-              }
+              source={{ uri: banner.imageUrl }}
               style={styles.bannerImage}
             />
           </View>
@@ -171,10 +163,6 @@ const Home = () => {
     () => require('../assets/product1.png'),
     [],
   );
-  const fallbackBannerImage = useMemo(
-    () => require('../assets/banner1.png'),
-    [],
-  );
 
   const topBanners = useMemo(
     () =>
@@ -208,7 +196,7 @@ const Home = () => {
       id: String(item?.id ?? item?.brand_id ?? `brand-${index}`),
       name: item?.name ?? item?.title ?? 'Brand',
       offersLabel: item?.offers_label ?? `${item?.offers ?? 0} Offers`,
-      imageUrl: item?.logo ?? null,
+      imageUrl: item?.logo,
     };
   }, []);
 
@@ -239,7 +227,7 @@ const Home = () => {
   const normalizeBanner = useCallback(
     (item: any, index: number): BannerItem => ({
       id: String(item?.id ?? item?.banner_id ?? `banner-${index}`),
-      imageUrl: item?.image ?? item?.imageUrl ?? item?.banner_image ?? null,
+      imageUrl: item?.image ?? item?.imageUrl ?? item?.banner_image,
       title: item?.title ?? item?.name ?? null,
       type: item?.type ?? item?.type_label ?? null,
     }),
@@ -453,11 +441,7 @@ const Home = () => {
                 {item.imageUrl ? (
                   <View style={styles.categoryImage}>
                     <Image
-                      source={
-                        item.imageUrl
-                          ? { uri: item.imageUrl }
-                          : fallbackCategoryImage
-                      }
+                      source={{ uri: item.imageUrl }}
                       style={styles.catImage}
                     />
                   </View>
@@ -490,10 +474,7 @@ const Home = () => {
             <Text style={styles.loaderText}>Loading banners...</Text>
           </View>
         ) : (
-          <SimpleCarousel
-            data={topBanners}
-            fallbackImage={fallbackBannerImage}
-          />
+          <SimpleCarousel data={topBanners} />
         )}
 
         {/* Top Brands */}
@@ -538,14 +519,18 @@ const Home = () => {
                 }
               >
                 <View style={styles.brandImageContainer}>
-                  <Image
-                    source={
-                      item.imageUrl
-                        ? { uri: item.imageUrl }
-                        : fallbackBrandImage
-                    }
-                    style={styles.brandImage}
-                  />
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.brandImage}
+                    />
+                  ) : (
+                    <MaterialIcons
+                      name="image"
+                      size={s(40)}
+                      color={COLORS.primary}
+                    />
+                  )}
                 </View>
 
                 {/* {item.offersLabel ? (
@@ -564,10 +549,7 @@ const Home = () => {
         {/* Middle Banners below Top Brands */}
         {middleBanners.length > 0 ? (
           <View style={styles.middleBannerWrapper}>
-            <SimpleCarousel
-              data={middleBanners}
-              fallbackImage={fallbackBannerImage}
-            />
+            <SimpleCarousel data={middleBanners} />
           </View>
         ) : null}
 
@@ -617,11 +599,7 @@ const Home = () => {
                 <View style={styles.imageContainer}>
                   {item.imageUrl ? (
                     <Image
-                      source={
-                        item.imageUrl
-                          ? { uri: item.imageUrl }
-                          : fallbackProductImage
-                      }
+                      source={{ uri: item.imageUrl }}
                       style={styles.productImage}
                     />
                   ) : (
