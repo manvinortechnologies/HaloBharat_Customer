@@ -70,6 +70,7 @@ interface ProductDetailData {
   min_order_quantity: number | null;
   price_including_gst?: number | null;
   you_may_also_like?: any[];
+  deliveryDays?: number | null;
 }
 
 const SkeletonLoader = () => {
@@ -332,6 +333,7 @@ const ProductDetail = ({ navigation, route }: any) => {
         you_may_also_like: Array.isArray(item?.you_may_also_like)
           ? item.you_may_also_like
           : [],
+        deliveryDays: item?.delivery_days ?? null,
       };
     },
     [productId],
@@ -1033,7 +1035,9 @@ const ProductDetail = ({ navigation, route }: any) => {
           </TouchableOpacity>
         )}
         <View style={styles.deliveryBox}>
-          <Text style={styles.deliveryText}>Delivery in 3 days</Text>
+          <Text style={styles.deliveryText}>
+            Delivery in {productData?.deliveryDays} days
+          </Text>
         </View>
       </View>
     </SafeAreaView>

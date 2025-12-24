@@ -160,7 +160,7 @@ const Signup = ({ navigation }: any) => {
           ) : null}
         </View>
 
-        <View style={styles.inputGroup}>
+        {/* <View style={styles.inputGroup}>
           <Text style={styles.label}>Password</Text>
           <TextInput
             placeholder="Enter your password"
@@ -173,7 +173,7 @@ const Signup = ({ navigation }: any) => {
           {errors.password ? (
             <Text style={styles.errorText}>{errors.password}</Text>
           ) : null}
-        </View>
+        </View> */}
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number</Text>

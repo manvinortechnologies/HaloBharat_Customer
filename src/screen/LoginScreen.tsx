@@ -119,7 +119,7 @@ const LoginScreen = ({ navigation }: any) => {
       </View>
 
       {/* Social Login */}
-      <View style={styles.socialContainer}>
+      {/* <View style={styles.socialContainer}>
         <View style={styles.line} />
         <Text style={styles.orText}>or login with</Text>
         <View style={styles.line} />
@@ -144,7 +144,7 @@ const LoginScreen = ({ navigation }: any) => {
             style={styles.socialIcon}
           />
         </TouchableOpacity>
-      </View>
+      </View> */}
 
       {/* Footer */}
       <View style={styles.footerContainer}>

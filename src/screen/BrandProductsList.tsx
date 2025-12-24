@@ -339,7 +339,11 @@ const BrandProductsList = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <NormalHeader title={brandName} />
+      <NormalHeader
+        title={brandName}
+        showWishlistButton={true}
+        showCartButton={true}
+      />
 
       <FlatList
         data={sortedProducts}

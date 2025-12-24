@@ -42,7 +42,7 @@ interface ProductGridCardProps {
   isLeftColumn?: boolean;
 }
 type RootStackParamList = {
-  ProductDetail: { product: ProductGridCardItem };
+  ProductDetail: { productId: string };
 };
 const ProductGridCard: React.FC<ProductGridCardProps> = ({
   item,
@@ -65,7 +65,7 @@ const ProductGridCard: React.FC<ProductGridCardProps> = ({
       : {};
 
   const handleOnPress = () => {
-    navigation.navigate('ProductDetail', { product: item });
+    navigation.navigate('ProductDetail', { productId: item.id });
   };
 
   const checkWishlistStatus = useCallback(async () => {

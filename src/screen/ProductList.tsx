@@ -294,7 +294,9 @@ const ProductList = () => {
           styles.productCard,
           isLeftColumn ? styles.leftCard : styles.rightCard,
         ]}
-        onPress={() => navigation.navigate('ProductDetail', { product: item })}
+        onPress={() =>
+          navigation.navigate('ProductDetail', { productId: item.id })
+        }
       >
         {item.image ? (
           <Image

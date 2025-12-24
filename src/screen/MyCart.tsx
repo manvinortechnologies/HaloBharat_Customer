@@ -729,7 +729,7 @@ const MyCart = ({ navigation }: any) => {
                   item={item}
                   variant="horizontal"
                   onPress={() =>
-                    navigation.navigate('ProductDetail', { product: item })
+                    navigation.navigate('ProductDetail', { productId: item.id })
                   }
                 />
               )}

@@ -67,12 +67,7 @@ const SearchScreen = ({ navigation }: any) => {
       return {
         id: String(item?.id ?? item?.category_id ?? `category-${index}`),
         name: item?.name ?? item?.title ?? 'Category',
-        imageUrl:
-          item?.image ??
-          item?.icon ??
-          item?.thumbnail ??
-          item?.featured_image ??
-          null,
+        imageUrl: item?.logo,
       };
     },
     [],
@@ -107,13 +102,7 @@ const SearchScreen = ({ navigation }: any) => {
     return {
       id: String(item?.id ?? item?.brand_id ?? `brand-${index}`),
       name: item?.name ?? item?.title ?? 'Brand',
-      imageUrl:
-        item?.image ??
-        item?.icon ??
-        item?.thumbnail ??
-        item?.featured_image ??
-        item?.logo ??
-        null,
+      imageUrl: item?.logo,
     };
   }, []);
 
@@ -379,7 +368,10 @@ const SearchScreen = ({ navigation }: any) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>MOST SEARCHED BRANDS</Text>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity
+              style={styles.seeAllButton}
+              onPress={() => navigation.navigate('BrandList')}
+            >
               <Text style={styles.seeAllText}>See all</Text>
               <Icon name="chevron-forward" size={16} color={COLORS.gray400} />
             </TouchableOpacity>
@@ -408,7 +400,12 @@ const SearchScreen = ({ navigation }: any) => {
                 <TouchableOpacity
                   key={brand.id}
                   style={styles.brandCard}
-                  onPress={() => navigation.navigate('ProductCategoryList')}
+                  onPress={() =>
+                    navigation.navigate('BrandProductsList', {
+                      brandId: brand.id,
+                      brandName: brand.name,
+                    })
+                  }
                 >
                   {brand.imageUrl ? (
                     <Image
@@ -483,7 +480,9 @@ const SearchScreen = ({ navigation }: any) => {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.topPickCard}
-                  onPress={() => navigation.navigate('ProductDetail')}
+                  onPress={() =>
+                    navigation.navigate('ProductDetail', { productId: item.id })
+                  }
                 >
                   {item.discountLabel ? (
                     <View style={styles.discountBadge}>

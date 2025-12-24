@@ -532,7 +532,7 @@ const Home = () => {
               <TouchableOpacity
                 style={styles.productCard}
                 onPress={() =>
-                  navigation.navigate('ProductDetail', { product: item })
+                  navigation.navigate('ProductDetail', { productId: item.id })
                 }
               >
                 <View style={styles.imageContainer}>

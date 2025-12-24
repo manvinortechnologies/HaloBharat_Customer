@@ -5,6 +5,7 @@ import { ScaledSheet } from 'react-native-size-matters';
 import auth from '@react-native-firebase/auth';
 import COLORS from '../constants/colors';
 import { loadAuthData } from '../storage/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SplashScreen = ({ navigation }: any) => {
   useEffect(() => {
@@ -12,11 +13,10 @@ const SplashScreen = ({ navigation }: any) => {
 
     const bootstrap = async () => {
       await loadAuthData();
-      unsubscribe = auth().onAuthStateChanged(user => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: user ? 'MainTab' : 'LoginScreen' }],
-        });
+      const data = await AsyncStorage.getItem('authData');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: data ? 'MainTab' : 'LoginScreen' }],
       });
     };
 

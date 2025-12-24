@@ -63,15 +63,9 @@ const Vendors = ({
           item?.thumbnail ??
           item?.featured_image ??
           null,
-        rating:
-          typeof item?.rating === 'number'
-            ? item.rating
-            : Number(item?.rating ?? 0),
-        reviews:
-          typeof item?.reviews === 'number'
-            ? item.reviews
-            : Number(item?.reviews ?? item?.review_count ?? 0),
-        subtitle: item?.subtitle ?? item?.tagline ?? 'Trusted vendor',
+        rating: item.average_rating,
+        reviews: item.reviews_count,
+        subtitle: item?.description || '',
       };
     },
     [],

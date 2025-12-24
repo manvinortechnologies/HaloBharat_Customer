@@ -20,8 +20,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import COLORS from '../constants/colors';
 import { getWishlist, removeWishlistItem } from '../api/wishlist';
-import { addCartItem } from '../api/cart';
+import { addCartItem, getCartItems } from '../api/cart';
 import Toast from 'react-native-toast-message';
+import { CartItem, useCart } from '../context/CartContext';
 
 interface WishlistProduct {
   id: string;
@@ -41,6 +42,7 @@ interface WishlistProduct {
 
 const Wishlist = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { getCartItemByProductId, cartItems, fetchCart } = useCart();
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [priceSort, setPriceSort] = useState<
     'low-to-high' | 'high-to-low' | null
@@ -170,7 +172,8 @@ const Wishlist = () => {
 
   useEffect(() => {
     fetchWishlist();
-  }, [fetchWishlist]);
+    fetchCart();
+  }, [fetchWishlist, fetchCart]);
 
   // Apply filters and sorting to wishlist items
   const sortedWishlistItems = useMemo(() => {
@@ -238,6 +241,8 @@ const Wishlist = () => {
     try {
       setAddingToCartId(product.id);
       await addCartItem(productId, product.minOrderQuantity ?? 1);
+      // Refresh cart to update the UI
+      await fetchCart();
       Alert.alert('Added to cart', 'Product added to your cart.', [
         { text: 'View Cart', onPress: () => navigation.navigate('MyCart') },
         { text: 'OK' },
@@ -265,6 +270,10 @@ const Wishlist = () => {
     index: number;
   }) => {
     const isLeftColumn = index % 2 === 0;
+    const cartItem = item.productId
+      ? getCartItemByProductId(item.productId)
+      : null;
+    const isProductInCart = cartItem !== null;
 
     return (
       <TouchableOpacity
@@ -278,19 +287,21 @@ const Wishlist = () => {
           }
         }}
       >
-        {/* Discount Badge */}
-        {item.discountLabel ? (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{item.discountLabel}</Text>
-          </View>
-        ) : null}
+        <View style={styles.badgeContainer}>
+          {/* Discount Badge */}
+          {item.discountLabel ? (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{item.discountLabel}</Text>
+            </View>
+          ) : null}
 
-        {/* Bestseller Badge */}
-        {item.isBestseller && (
-          <View style={styles.bestsellerBadge}>
-            <Text style={styles.bestsellerText}>Bestseller</Text>
-          </View>
-        )}
+          {/* Bestseller Badge */}
+          {item.isBestseller && (
+            <View style={styles.bestsellerBadge}>
+              <Text style={styles.bestsellerText}>Bestseller</Text>
+            </View>
+          )}
+        </View>
 
         {/* Product Image */}
         {item.imageUrl ? (
@@ -334,50 +345,54 @@ const Wishlist = () => {
             <View style={styles.ratingRow}>
               <View style={styles.ratingBadge}>
                 <Icon name="star" size={12} color={COLORS.accentGold} />
-                <Text style={styles.ratingText}>
-                  {item.rating?.toFixed(1) ?? '--'}
-                </Text>
+                <Text style={styles.ratingText}>{item.rating?.toFixed(1)}</Text>
               </View>
               <Text style={styles.reviewText}>
                 {item.reviews ? `(${item.reviews})` : ''}
               </Text>
             </View>
           </View>
-          <Text style={styles.soldText}>{item.soldCount}</Text>
+          {/* <Text style={styles.soldText}>{item.soldCount}</Text> */}
 
           {/* Price Section */}
           <View style={styles.priceRow}>
-            {item.price ? (
-              <Text style={styles.price}>₹{item.price}</Text>
-            ) : (
-              <Text style={styles.priceUnavailable}>Price unavailable</Text>
-            )}
-
+            <Text style={styles.price}>₹{item.price}</Text>
             <Text style={styles.originalPrice}>₹{item.originalPrice}</Text>
           </View>
 
           {/* Delivery/Bestseller Badge */}
-          <View style={styles.deliveryBadge}>
+          {/* <View style={styles.deliveryBadge}>
             <Text style={styles.deliveryText}>
-              {item.deliveryText ?? 'Delivery in 3 days'}
+              Delivery in {item.deliveryText ?? '3'} days
             </Text>
-          </View>
+          </View> */}
 
-          {/* Add to Cart Button */}
-          <TouchableOpacity
-            style={[
-              styles.addToCartButton,
-              addingToCartId === item.id && styles.addToCartButtonDisabled,
-            ]}
-            onPress={() => handleAddToCart(item)}
-            disabled={addingToCartId === item.id}
-          >
-            {addingToCartId === item.id ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-            )}
-          </TouchableOpacity>
+          {/* Add to Cart / My Cart Button */}
+          {isProductInCart ? (
+            <TouchableOpacity
+              style={styles.myCartButton}
+              onPress={() => navigation.navigate('MyCart')}
+              activeOpacity={0.8}
+            >
+              <Icon name="shopping-cart" size={s(16)} color={COLORS.white} />
+              <Text style={styles.myCartText}>My Cart</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.addToCartButton,
+                addingToCartId === item.id && styles.addToCartButtonDisabled,
+              ]}
+              onPress={() => handleAddToCart(item)}
+              disabled={addingToCartId === item.id}
+            >
+              {addingToCartId === item.id ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <Text style={styles.addToCartText}>Add to Cart</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -829,13 +844,16 @@ const styles = ScaledSheet.create({
     marginLeft: '4@s',
     marginRight: '8@s',
   },
-  discountBadge: {
+  badgeContainer: {
     position: 'absolute',
     top: '8@vs',
+  },
+  discountBadge: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: '4@s',
     paddingVertical: '2@vs',
     borderRadius: '4@s',
+    marginBottom: '4@s',
     zIndex: 2,
   },
   discountText: {
@@ -844,8 +862,6 @@ const styles = ScaledSheet.create({
     fontWeight: '400',
   },
   bestsellerBadge: {
-    position: 'absolute',
-    top: '30@vs',
     backgroundColor: COLORS.accentBronze,
     paddingHorizontal: '4@s',
     paddingVertical: '2@vs',
@@ -859,14 +875,14 @@ const styles = ScaledSheet.create({
   },
   productImage: {
     width: '100%',
-    height: '160@vs',
+    height: '150@s',
     backgroundColor: COLORS.gray1025,
     justifyContent: 'center',
     alignItems: 'center',
   },
   favoriteButton: {
     position: 'absolute',
-    top: '130@vs',
+    top: '120@s',
     right: '8@s',
     backgroundColor: COLORS.textAsh,
     borderRadius: '20@s',
@@ -951,17 +967,17 @@ const styles = ScaledSheet.create({
   soldText: {
     fontSize: '10@ms',
     color: COLORS.black,
-    marginBottom: '4@vs',
+    // marginBottom: '4@vs',
   },
   addToCartButton: {
     width: '65%',
     backgroundColor: COLORS.primary,
-    paddingVertical: '6@vs',
+    paddingVertical: '4@s',
     paddingHorizontal: '10@s',
     borderRadius: '6@s',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '32@vs',
+    // minHeight: '32@vs',
   },
   addToCartButtonDisabled: {
     opacity: 0.6,
@@ -970,6 +986,23 @@ const styles = ScaledSheet.create({
     color: COLORS.white,
     fontSize: '12@ms',
     fontWeight: '500',
+  },
+  myCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryDeep,
+    borderRadius: '8@s',
+    paddingVertical: '4@s',
+    paddingHorizontal: '16@s',
+    // marginTop: '8@vs',
+    gap: '8@s',
+    width: '65%',
+  },
+  myCartText: {
+    color: COLORS.white,
+    fontSize: '12@ms',
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

@@ -14,6 +14,7 @@ import COLORS from '../constants/colors';
 import { firebaseLogin } from '../api/auth';
 import { storeAuthData } from '../storage/authStorage';
 import { AuthData } from '../storage/authStorage';
+import Toast from 'react-native-toast-message';
 
 const OTP_LENGTH = 6;
 
@@ -107,12 +108,24 @@ const OtpScreen = ({ navigation, route }: any) => {
         routes: [{ name: 'MainTab' }],
       });
     } catch (err: any) {
+      console.log('err', err.response.data?.error);
       setError(
-        err?.code === 'auth/invalid-verification-code'
-          ? 'Invalid or expired code. Please try again.'
-          : error?.response?.data?.error ||
-              'Verification failed. Please retry.',
+        err.response.data?.error || 'Verification failed. Please retry.',
       );
+      if (
+        err.response.data?.error ===
+        'You are not registered. Please sign up first.'
+      ) {
+        Toast.show({
+          type: 'error',
+          text1: err.response.data?.error,
+        });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Signup' }],
+        });
+        return;
+      }
       resetOtpInputs();
     } finally {
       setVerifying(false);
