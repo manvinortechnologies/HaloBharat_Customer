@@ -23,6 +23,7 @@ export const BRAND_ENDPOINTS = {
 export const ACCOUNT_ENDPOINTS = {
   firebaseLogin: '/account/firebase-login/',
   signup: '/account/api/signup/',
+  delete: '/account/api/customer/delete/',
 };
 
 export const PRODUCT_ENDPOINTS = {

@@ -35,6 +35,14 @@ export const signup = async (payload: SignupPayload) => {
   return response.data;
 };
 
+export const deleteAccount = async (mobileNumber: string) => {
+  const response = await apiClient.post(endpoints.account.delete, {
+    mobile_number: mobileNumber,
+  });
+  return response.data;
+};
+
 export const authAPI = {
   register: signup,
+  deleteAccount: deleteAccount,
 };

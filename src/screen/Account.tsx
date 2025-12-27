@@ -106,10 +106,7 @@ const Account = () => {
         ) : (
           <View style={styles.detailsContainer}>
             {renderDetail('Full Name', profile?.full_name ?? profile?.name)}
-            {renderDetail(
-              'Phone Number',
-              profile?.contact_phone ?? profile?.phone,
-            )}
+            {renderDetail('Phone Number', profile?.contact_phone)}
             {renderDetail('Email ID', profile?.email)}
             {renderDetail('Gender', profile?.gender)}
             {renderDetail(

@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -10,6 +18,8 @@ import COLORS from '../constants/colors';
 import auth from '@react-native-firebase/auth';
 import { clearAuthData } from '../storage/authStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAccount } from '../api/auth';
+import Toast from 'react-native-toast-message';
 
 // Define your stack param list
 type RootStackParamList = {
@@ -27,12 +37,15 @@ const More = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   const [profile, setProfile] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       const profileData = await AsyncStorage.getItem('profile');
       if (profileData) {
         const data = JSON.parse(profileData);
-        setProfile(data?.full_name);
+        setProfile(data);
       }
     };
     fetchProfile();
@@ -118,6 +131,74 @@ const More = () => {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleCancelDelete = () => {
+    if (!deletingAccount) {
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    // Get mobile number from profile
+    const mobileNumber = profile?.contact_phone;
+
+    if (!mobileNumber) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Unable to find mobile number. Please try again.',
+      });
+      setShowDeleteModal(false);
+      return;
+    }
+
+    // Ensure mobile number has country code
+    const formattedMobileNumber = mobileNumber.startsWith('+')
+      ? mobileNumber
+      : `+91${mobileNumber}`;
+
+    try {
+      setDeletingAccount(true);
+      await deleteAccount(formattedMobileNumber);
+      Toast.show({
+        type: 'success',
+        text1: 'Account Deleted',
+        text2: 'Your account has been successfully deleted.',
+      });
+      // Sign out from Firebase
+      try {
+        await auth().signOut();
+      } catch (error) {
+        console.warn('Failed to sign out of Firebase', error);
+      }
+      // Clear local data
+      await clearAuthData();
+      await AsyncStorage.removeItem('profile');
+      // Navigate to login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'LoginScreen' as never }],
+      });
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to delete account. Please try again.';
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: errorMessage,
+      });
+      setShowDeleteModal(false);
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <NormalHeader title="More" showBackButton={false} />
@@ -126,7 +207,9 @@ const More = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.greetingContainer}>
-          <Text style={styles.greeting}>Hey, {profile}!</Text>
+          <Text style={styles.greeting}>
+            Hey, {profile?.full_name || profile?.name}!
+          </Text>
         </View>
 
         <View style={styles.menuContainer}>
@@ -143,7 +226,9 @@ const More = () => {
                 {item.isProfile ? (
                   <View style={styles.profileCircle}>
                     <Text style={styles.profileLetter}>
-                      {profile?.slice(0, 1)?.toUpperCase()}
+                      {(profile?.full_name || profile?.name)
+                        ?.slice(0, 1)
+                        ?.toUpperCase()}
                     </Text>
                   </View>
                 ) : (
@@ -159,11 +244,68 @@ const More = () => {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Icon name="log-out-outline" size={20} color={COLORS.white} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={handleDeleteAccount}
+          >
+            <Icon name="trash-outline" size={20} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.logoutButton]}
+            onPress={handleLogout}
+          >
+            <Icon name="log-out-outline" size={20} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <View style={styles.deleteModalIconContainer}>
+              <Icon name="warning" size={48} color={COLORS.accentRuby} />
+            </View>
+            <Text style={styles.deleteModalTitle}>Delete Account</Text>
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete your account? This action cannot
+              be undone and all your data will be permanently deleted.
+            </Text>
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelModalButton]}
+                onPress={handleCancelDelete}
+                disabled={deletingAccount}
+              >
+                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.deleteModalButton,
+                  deletingAccount && styles.deleteModalButtonDisabled,
+                ]}
+                onPress={handleConfirmDelete}
+                disabled={deletingAccount}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.deleteModalButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -233,18 +375,96 @@ const styles = ScaledSheet.create({
     color: COLORS.textAsh,
     fontWeight: '400',
   },
-  logoutButton: {
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: '20@s',
+    marginVertical: '20@vs',
+    gap: '10@s',
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: '20@s',
-    marginVertical: '20@vs',
-    backgroundColor: COLORS.accentRed,
     borderRadius: '12@s',
     paddingVertical: '12@vs',
     gap: '8@s',
   },
-  logoutText: {
+  deleteButton: {
+    backgroundColor: COLORS.accentRuby,
+  },
+  logoutButton: {
+    backgroundColor: COLORS.accentRed,
+  },
+  actionButtonText: {
+    color: COLORS.white,
+    fontSize: '14@ms',
+    fontWeight: '600',
+  },
+  // Delete Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlayStrong,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '20@s',
+  },
+  deleteModalContent: {
+    width: '100%',
+    maxWidth: '400@s',
+    backgroundColor: COLORS.white,
+    borderRadius: '16@s',
+    paddingVertical: '24@vs',
+    paddingHorizontal: '20@s',
+    alignItems: 'center',
+  },
+  deleteModalIconContainer: {
+    marginBottom: '16@vs',
+  },
+  deleteModalTitle: {
+    fontSize: '20@ms',
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: '12@vs',
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: '14@ms',
+    color: COLORS.textSemiDark,
+    textAlign: 'center',
+    marginBottom: '24@vs',
+    lineHeight: '20@vs',
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: '12@s',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: '12@vs',
+    borderRadius: '8@s',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '44@vs',
+  },
+  cancelModalButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.gray800,
+  },
+  cancelModalButtonText: {
+    color: COLORS.textDark,
+    fontSize: '14@ms',
+    fontWeight: '600',
+  },
+  deleteModalButton: {
+    backgroundColor: COLORS.accentRuby,
+  },
+  deleteModalButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteModalButtonText: {
     color: COLORS.white,
     fontSize: '14@ms',
     fontWeight: '600',
