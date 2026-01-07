@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "862397232947",
-    "project_id": "halo-bharat",
-    "storage_bucket": "halo-bharat.firebasestorage.app"
+    "project_number": "714430876238",
+    "project_id": "halobharat-26362",
+    "storage_bucket": "halobharat-26362.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:862397232947:android:0494a03ad3cb66c4013046",
+        "mobilesdk_app_id": "1:714430876238:android:36317f2accc836f227511f",
         "android_client_info": {
           "package_name": "com.halobharat"
         }
@@ -15,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCEH638jZtaTdncuoFw5UeegcisrFgbkrc"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:862397232947:android:d4d28607ee9d92fd013046",
-        "android_client_info": {
-          "package_name": "com.halobharatseller"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCEH638jZtaTdncuoFw5UeegcisrFgbkrc"
+          "current_key": "AIzaSyA7oEFNJcpszsDL0f6bp_v2Pd-0simRN8c"
         }
       ],
       "services": {
