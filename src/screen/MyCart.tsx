@@ -12,7 +12,6 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScaledSheet, ms, vs, s } from 'react-native-size-matters';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ion from 'react-native-vector-icons/Ionicons';
@@ -23,6 +22,7 @@ import { checkoutCart, removeCartItem, updateCartItem } from '../api/cart';
 import Toast from 'react-native-toast-message';
 import { useCart, CartItem } from '../context/CartContext';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BillDetails {
   itemTotal: number;
@@ -52,6 +52,7 @@ interface BestsellerItem {
 }
 
 const MyCart = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { cartItems, loading, refreshing, error, fetchCart, updateQuantity } =
     useCart();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(
@@ -430,7 +431,12 @@ const MyCart = ({ navigation }: any) => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[
+        styles.safeArea,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+      ]}
+    >
       {/* Header Section */}
       <NormalHeader title="Cart" />
 
@@ -740,7 +746,7 @@ const MyCart = ({ navigation }: any) => {
       </ScrollView>
 
       {/* Fixed Bottom Checkout Button */}
-      <View style={styles.bottomContainer}>
+      <View style={[styles.bottomContainer, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity
           style={[
             styles.checkoutButton,
@@ -809,7 +815,7 @@ const MyCart = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

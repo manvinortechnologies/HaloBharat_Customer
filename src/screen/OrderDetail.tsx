@@ -389,7 +389,21 @@ const OrderDetail = ({ navigation }: any) => {
                 <Text style={styles.statusText}>{status}</Text>
               </View> */}
             </View>
-
+            {order?.payment_status && (
+              <View
+                style={[
+                  styles.paymentStatusContainer,
+                  styles[
+                    `${order.payment_status.toLowerCase().replace('_', '')}`
+                  ],
+                ]}
+              >
+                <Text style={styles.paymentStatusText}>
+                  Payment Status -{' '}
+                  {order.payment_status.replace('_', ' ').toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 Delivery To -{' '}
@@ -398,6 +412,7 @@ const OrderDetail = ({ navigation }: any) => {
                 </Text>
               </Text>
               <Text style={styles.text}>{order?.delivery_to}</Text>
+
               {order?.contact_phone ? (
                 <Text style={styles.text}>Mobile - {order.contact_phone}</Text>
               ) : null}
@@ -625,6 +640,28 @@ const styles = ScaledSheet.create({
   },
   name: {
     color: COLORS.black,
+    fontWeight: '600',
+  },
+  partialpaid: {
+    backgroundColor: COLORS.brandBlue,
+  },
+  paid: {
+    backgroundColor: COLORS.success,
+  },
+  incredit: {
+    backgroundColor: COLORS.accentAmber ?? '#FFE5E5',
+  },
+  paymentStatusContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: '8@s',
+    paddingHorizontal: '12@s',
+    paddingVertical: '8@vs',
+    marginBottom: '10@vs',
+    alignSelf: 'center',
+  },
+  paymentStatusText: {
+    fontSize: '13@ms',
+    color: COLORS.white,
     fontWeight: '600',
   },
   text: {
