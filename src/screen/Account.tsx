@@ -116,15 +116,15 @@ const Account = () => {
                   .filter(Boolean)
                   .join(', '),
             )}
-            {renderDetail('Role', profile?.role)}
-            {renderDetail('Status', profile?.status)}
-            {renderDetail(
+            {/* {renderDetail('Role', profile?.role)} */}
+            {/* {renderDetail('Status', profile?.status)} */}
+            {/* {renderDetail(
               'Account Created',
               profile?.created_at
                 ? new Date(profile.created_at).toLocaleString()
                 : null,
             )}
-            {renderDetail('Profile ID', profile?.id)}
+            {renderDetail('Profile ID', profile?.id)} */}
           </View>
         )}
 

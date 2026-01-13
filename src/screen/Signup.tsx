@@ -25,7 +25,7 @@ const Signup = ({ navigation }: any) => {
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
-    password: '',
+    // password: '',
     contact_phone: '',
     gender: '',
     address: '',
@@ -57,14 +57,21 @@ const Signup = ({ navigation }: any) => {
       currentErrors.email = 'Enter a valid email.';
     }
 
-    if (!formData.password.trim()) {
-      currentErrors.password = 'Password is required.';
-    } else if (formData.password.length < 6) {
-      currentErrors.password = 'Password must be at least 6 characters.';
-    }
+    // if (!formData.password.trim()) {
+    //   currentErrors.password = 'Password is required.';
+    // } else if (formData.password.length < 6) {
+    //   currentErrors.password = 'Password must be at least 6 characters.';
+    // }
 
     if (!formData.contact_phone.trim()) {
       currentErrors.contact_phone = 'Phone number is required.';
+    }
+
+    if (
+      formData.contact_phone.trim() &&
+      !formData.contact_phone.includes('+91')
+    ) {
+      currentErrors.contact_phone = 'Phone number must start with +91.';
     }
 
     if (!formData.gender.trim()) {
@@ -88,6 +95,7 @@ const Signup = ({ navigation }: any) => {
     }
 
     setErrors(currentErrors);
+    console.log(currentErrors);
     return Object.keys(currentErrors).length === 0;
   };
 
