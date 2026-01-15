@@ -89,6 +89,7 @@ const LoginScreen = ({ navigation }: any) => {
             maxLength={10}
           />
         </View>
+        <Text style={styles.errorText}>{error}</Text>
         <Text style={styles.infoText}>
           We will send a confirmation code on your number, to verify it is you
         </Text>
@@ -219,7 +220,7 @@ const styles = ScaledSheet.create({
   errorText: {
     color: COLORS.accentRed,
     fontSize: '12@ms',
-    marginTop: '6@vs',
+    // marginTop: '6@vs',
   },
   infoText: {
     fontSize: '12@ms',

@@ -112,6 +112,7 @@ const OtpScreen = ({ navigation, route }: any) => {
       setError(
         err.response.data?.error || 'Verification failed. Please retry.',
       );
+
       if (
         err.response.data?.error ===
         'You are not registered. Please sign up first.'
@@ -125,6 +126,11 @@ const OtpScreen = ({ navigation, route }: any) => {
           routes: [{ name: 'Signup' }],
         });
         return;
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: err.response.data?.error,
+        });
       }
       resetOtpInputs();
     } finally {
