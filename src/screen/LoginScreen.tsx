@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import COLORS from '../constants/colors';
 import { clearAuthData } from '../storage/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation }: any) => {
   const [phone, setPhone] = useState('');
@@ -59,10 +60,17 @@ const LoginScreen = ({ navigation }: any) => {
       setSubmitting(false);
     }
   };
-
+  const checkUser = async () => {
+    const user = await AsyncStorage.getItem('user');
+    return !!user
+  };
   useEffect(() => {
-    auth().signOut();
-    clearAuthData();// clear previous Firebase user
+    checkUser().then((user) => {
+      if (user) {
+        auth().signOut();
+        clearAuthData();
+      }
+    });
   }, []);
 
   return (

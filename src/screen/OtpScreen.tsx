@@ -42,6 +42,9 @@ const OtpScreen = ({ navigation, route }: any) => {
   const handleAuthStateChanged = useCallback(
     async (user: any) => {
       if (user && !verifying && !autoVerifying) {
+        if (user.phoneNumber !== phoneNumber) {
+          return;
+        }
         // Some Android devices can automatically process the verification code (OTP) message,
         // and the user would NOT need to enter the code.
         // Actually, if he/she tries to enter it, he/she will get an error message because the code was already used in the background.
@@ -158,6 +161,7 @@ const OtpScreen = ({ navigation, route }: any) => {
       setError('Enter the complete verification code.');
       return;
     }
+    setAutoVerifying(true);
     try {
       setVerifying(true);
       const credential = auth.PhoneAuthProvider.credential(
