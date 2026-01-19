@@ -9,7 +9,7 @@ export interface FirebaseLoginPayload {
 export interface SignupPayload {
   full_name: string;
   email: string;
-  password: string;
+  // password: string;
   contact_phone: string;
   gender: string;
   address: string;

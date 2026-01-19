@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScaledSheet } from 'react-native-size-matters';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import COLORS from '../constants/colors';
+import { clearAuthData } from '../storage/authStorage';
 
 const LoginScreen = ({ navigation }: any) => {
   const [phone, setPhone] = useState('');
@@ -51,13 +52,18 @@ const LoginScreen = ({ navigation }: any) => {
         err?.code === 'auth/invalid-phone-number'
           ? 'The phone number is invalid.'
           : err?.code === 'auth/too-many-requests'
-          ? 'Too many attempts. Please try again later.'
-          : 'Unable to send verification code. Please try again.';
+            ? 'Too many attempts. Please try again later.'
+            : 'Unable to send verification code. Please try again.';
       setError(message);
     } finally {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    auth().signOut();
+    clearAuthData();// clear previous Firebase user
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -112,12 +118,12 @@ const LoginScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       {/* Sign Up */}
-      <View style={styles.signupContainer}>
+      {/* <View style={styles.signupContainer}>
         <Text style={styles.signupText}>Don’t have an account? </Text>
         <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
           <Text style={styles.signupLink}>Sign Up</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
 
       {/* Social Login */}
       {/* <View style={styles.socialContainer}>
@@ -151,7 +157,12 @@ const LoginScreen = ({ navigation }: any) => {
       <View style={styles.footerContainer}>
         <Text style={styles.footerText}>
           By continuing, you agree to our{' '}
-          <Text style={styles.linkText}>Terms of Service</Text> and{' '}
+          <Text
+            style={styles.linkText}
+            onPress={() => navigation.navigate('TermsPolicies')}>
+            Terms of Service
+          </Text>{' '}
+          and{' '}
           <Text style={styles.linkText}>Privacy Policy</Text>
         </Text>
       </View>

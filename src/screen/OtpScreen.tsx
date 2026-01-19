@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ const OtpScreen = ({ navigation, route }: any) => {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
+  const [autoVerifying, setAutoVerifying] = useState(false);
   const inputRefs = useRef<TextInput[]>([]);
   const phoneNumber: string | undefined = params?.phoneNumber;
 
@@ -36,6 +37,73 @@ const OtpScreen = ({ navigation, route }: any) => {
       navigation.goBack();
     }
   }, [verificationId, navigation]);
+
+  // Handle automatic OTP verification on Android devices
+  const handleAuthStateChanged = useCallback(
+    async (user: any) => {
+      if (user && !verifying && !autoVerifying) {
+        // Some Android devices can automatically process the verification code (OTP) message,
+        // and the user would NOT need to enter the code.
+        // Actually, if he/she tries to enter it, he/she will get an error message because the code was already used in the background.
+        // In this function, make sure you hide the component(s) for entering the code and/or navigate away from this screen.
+        // It is also recommended to display a message to the user informing him/her that he/she has successfully logged in.
+        try {
+          setAutoVerifying(true);
+          setError('');
+          console.log('user', user);
+          const idToken = await user.getIdToken(true);
+          if (!idToken) {
+            throw new Error('Unable to obtain login token. Please retry.');
+          }
+          try {
+            const response = await firebaseLogin(idToken);
+            await storeAuthData(response as AuthData);
+            Toast.show({
+              type: 'success',
+              text1: 'Successfully logged in!',
+            });
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'MainTab' }],
+            });
+          } catch (err: any) {
+            console.log('err', err.response?.data?.error);
+            if (
+              err.response?.data?.error ===
+              'You are not registered. Please sign up first.'
+            ) {
+              Toast.show({
+                type: 'error',
+                text1: err.response?.data?.error,
+              });
+              navigation.reset({
+                index: 0,
+                routes: [
+                  { name: 'Signup', params: { phoneNumber, idToken } },
+                ],
+              });
+            } else {
+              setError(
+                err.response?.data?.error ||
+                'Login failed. Please try again.',
+              );
+            }
+          }
+        } catch (err: any) {
+          console.log('Auto-verification error:', err);
+          setError('Auto-verification failed. Please enter the code manually.');
+        } finally {
+          setAutoVerifying(false);
+        }
+      }
+    },
+    [verifying, autoVerifying, phoneNumber, navigation],
+  );
+
+  useEffect(() => {
+    const subscriber = auth().onAuthStateChanged(handleAuthStateChanged);
+    return subscriber; // unsubscribe on unmount
+  }, [handleAuthStateChanged]);
 
   useEffect(() => {
     if (timer <= 0) {
@@ -101,37 +169,42 @@ const OtpScreen = ({ navigation, route }: any) => {
       if (!idToken) {
         throw new Error('Unable to obtain login token. Please retry.');
       }
-      const response = await firebaseLogin(idToken);
-      await storeAuthData(response as AuthData);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTab' }],
-      });
+      try {
+        const response = await firebaseLogin(idToken);
+        await storeAuthData(response as AuthData);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTab' }],
+        });
+
+      } catch (err: any) {
+        console.log('err', err.response.data?.error);
+        if (
+          err.response.data?.error ===
+          'You are not registered. Please sign up first.'
+        ) {
+          Toast.show({
+            type: 'error',
+            text1: err.response.data?.error,
+          });
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Signup', params: { phoneNumber, idToken } }],
+          });
+        }
+      }
     } catch (err: any) {
       console.log('err', err.response.data?.error);
       setError(
         err.response.data?.error || 'Verification failed. Please retry.',
       );
 
-      if (
-        err.response.data?.error ===
-        'You are not registered. Please sign up first.'
-      ) {
-        Toast.show({
-          type: 'error',
-          text1: err.response.data?.error,
-        });
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Signup' }],
-        });
-        return;
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: err.response.data?.error,
-        });
-      }
+
+      Toast.show({
+        type: 'error',
+        text1: err.response.data?.error,
+      });
+
       resetOtpInputs();
     } finally {
       setVerifying(false);
@@ -182,24 +255,34 @@ const OtpScreen = ({ navigation, route }: any) => {
       </Text>
 
       {/* OTP Boxes */}
-      <View style={styles.otpContainer}>
-        {otp.map((digit, index) => (
-          <TextInput
-            key={index}
-            style={styles.otpBox}
-            keyboardType="number-pad"
-            maxLength={1}
-            value={digit}
-            onChangeText={text => handleChange(text, index)}
-            onKeyPress={({ nativeEvent }) =>
-              handleKeyPress(nativeEvent.key, index)
-            }
-            ref={ref => {
-              inputRefs.current[index] = ref!;
-            }}
-          />
-        ))}
-      </View>
+      {autoVerifying ? (
+        <View style={styles.autoVerifyContainer}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+          <Text style={styles.autoVerifyText}>
+            Automatically verifying your code...
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.otpContainer}>
+          {otp.map((digit, index) => (
+            <TextInput
+              key={index}
+              style={styles.otpBox}
+              keyboardType="number-pad"
+              maxLength={1}
+              value={digit}
+              onChangeText={text => handleChange(text, index)}
+              onKeyPress={({ nativeEvent }) =>
+                handleKeyPress(nativeEvent.key, index)
+              }
+              ref={ref => {
+                inputRefs.current[index] = ref!;
+              }}
+              editable={!autoVerifying}
+            />
+          ))}
+        </View>
+      )}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {/* Resend Code */}
@@ -218,19 +301,22 @@ const OtpScreen = ({ navigation, route }: any) => {
             {resending
               ? 'Sending...'
               : timer > 0
-              ? `Re-send in ${timer}s`
-              : 'Re-send code'}
+                ? `Re-send in ${timer}s`
+                : 'Re-send code'}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Continue Button */}
       <TouchableOpacity
-        style={[styles.button, verifying && styles.disabledButton]}
+        style={[
+          styles.button,
+          (verifying || autoVerifying) && styles.disabledButton,
+        ]}
         onPress={handleVerify}
-        disabled={verifying}
+        disabled={verifying || autoVerifying}
       >
-        {verifying ? (
+        {verifying || autoVerifying ? (
           <ActivityIndicator color={COLORS.white} />
         ) : (
           <Text style={styles.buttonText}>Continue</Text>
@@ -343,5 +429,17 @@ const styles = ScaledSheet.create({
   linkText: {
     color: COLORS.black,
     fontWeight: '600',
+  },
+  autoVerifyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: '15@vs',
+    paddingVertical: '20@vs',
+  },
+  autoVerifyText: {
+    fontSize: '13@ms',
+    color: COLORS.textCool,
+    marginTop: '10@vs',
+    textAlign: 'center',
   },
 });

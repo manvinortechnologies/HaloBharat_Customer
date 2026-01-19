@@ -70,6 +70,5 @@ export const loadAuthData = async () => {
 
 export const clearAuthData = async () => {
   cachedAuthData = null;
-  await AsyncStorage.removeItem(AUTH_DATA_KEY);
-  await AsyncStorage.removeItem(AUTH_FALLBACK_KEY);
+  await AsyncStorage.clear();
 };

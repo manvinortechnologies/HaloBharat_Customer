@@ -13,7 +13,8 @@ import { ScaledSheet } from 'react-native-size-matters';
 import { Dropdown } from 'react-native-element-dropdown';
 import COLORS from '../constants/colors';
 import Loader from '../component/Loader';
-import { authAPI } from '../api/auth';
+import { authAPI, firebaseLogin } from '../api/auth';
+import { AuthData, storeAuthData } from '../storage/authStorage';
 
 const genderOptions = [
   { label: 'Male', value: 'Male' },
@@ -21,12 +22,15 @@ const genderOptions = [
   { label: 'Other', value: 'Other' },
 ];
 
-const Signup = ({ navigation }: any) => {
+const Signup = ({ navigation, route }: any) => {
+  const params = route?.params ?? {};
+  const phoneNumber: string | undefined = params?.phoneNumber;
+  const idToken: string = params?.idToken;
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
     // password: '',
-    contact_phone: '',
+    contact_phone: phoneNumber ?? '',
     gender: '',
     address: '',
     locality: '',
@@ -63,16 +67,16 @@ const Signup = ({ navigation }: any) => {
     //   currentErrors.password = 'Password must be at least 6 characters.';
     // }
 
-    if (!formData.contact_phone.trim()) {
-      currentErrors.contact_phone = 'Phone number is required.';
-    }
+    // if (!formData.contact_phone.trim()) {
+    //   currentErrors.contact_phone = 'Phone number is required.';
+    // }
 
-    if (
-      formData.contact_phone.trim() &&
-      !formData.contact_phone.includes('+91')
-    ) {
-      currentErrors.contact_phone = 'Phone number must start with +91.';
-    }
+    // if (
+    //   formData.contact_phone.trim() &&
+    //   !formData.contact_phone.includes('+91')
+    // ) {
+    //   currentErrors.contact_phone = 'Phone number must start with +91.';
+    // }
 
     if (!formData.gender.trim()) {
       currentErrors.gender = 'Gender is required.';
@@ -107,8 +111,13 @@ const Signup = ({ navigation }: any) => {
     try {
       setLoading(true);
       await authAPI.register(formData);
+      const response = await firebaseLogin(idToken);
+      await storeAuthData(response as AuthData);
       setErrors({});
-      navigation.navigate('LoginScreen');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTab' }],
+      });
     } catch (error: any) {
       console.error('Signup error:', error);
       setErrors(prev => ({
@@ -183,7 +192,7 @@ const Signup = ({ navigation }: any) => {
           ) : null}
         </View> */}
 
-        <View style={styles.inputGroup}>
+        {/* <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number</Text>
           <TextInput
             placeholder="+91"
@@ -196,7 +205,7 @@ const Signup = ({ navigation }: any) => {
           {errors.contact_phone ? (
             <Text style={styles.errorText}>{errors.contact_phone}</Text>
           ) : null}
-        </View>
+        </View> */}
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Gender</Text>
